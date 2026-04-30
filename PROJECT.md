@@ -33,11 +33,33 @@ $godot = (Get-Command godot -ErrorAction Stop).Source
 & $godot --headless --path $project --quit
 ```
 
+## Project-Specific GUT Testing
+
+- Godot project tests use the GUT addon. GUT should already be installed under `res://addons/gut/`.
+- Treat missing `res://addons/gut/` setup as a project configuration issue: report it clearly instead of silently switching to an unrelated test framework.
+- Use a project-local GUT wrapper when one exists, such as a script under `tools/`; otherwise invoke GUT directly through Godot.
+- Prefer the smallest relevant GUT test or suite for the changed area, then run a headless project load when scripts, scenes, resources, addons, or project settings changed.
+- If no GUT coverage exists for the changed behavior, document that gap and use the strongest practical fallback validation without introducing another test framework.
+
+Generic direct GUT CLI pattern:
+
+```powershell
+$project = (Get-Location).Path
+$godot = $env:GODOT_EXECUTABLE
+& $godot --headless --path $project --script res://addons/gut/gut_cmdln.gd -gexit -gdisable_colors
+```
+
+Target one GUT script or test name when the changed behavior is narrow:
+
+```powershell
+$project = (Get-Location).Path
+$godot = $env:GODOT_EXECUTABLE
+& $godot --headless --path $project --script res://addons/gut/gut_cmdln.gd -gtest=res://tests/gut/example_test.gd -gunit_test_name=test_example_behavior -gexit -gdisable_colors
+```
+
 ## Testing And Verification
 
 - Prefer the smallest validation that exercises the changed behavior.
-- Use project-local test runners when they exist, such as scripts under `tools/`, tests under `tests/`, or an addon-provided runner.
-- If no automated test runner exists for the changed area, document that and run the strongest practical fallback: readback, static checks, a Godot headless load, editor/manual verification, or a small temporary validation scene when appropriate.
 - Use broader validation for shared bootstrap, autoloads, main scene changes, project settings, broad resource moves, or release-style validation.
 - If a targeted runner exceeds a reasonable timeout, report the timeout and stop any Godot processes started by that run. Do not claim the runner passed.
 - Warnings from Godot should be reported when present, but command exit codes determine pass/fail unless the task is specifically about warning cleanup.

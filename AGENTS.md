@@ -18,8 +18,9 @@
 - Do not invent missing requirements; ask when ambiguity would materially change behavior.
 - Prefer strong types, explicit data models, and clear invariants over defensive branching.
 - Keep control flow readable and correct, especially around state transitions, retries, loading, and fallbacks.
-- Preserve backward compatibility only when the task requires it or existing project policy explicitly calls for it.
-- Clean up obsolete code related to the task.
+- Do not keep or support backward compatibility, compatibility shims, obsolete APIs, legacy behavior, or old call paths when implementing new code.
+- Default to refactoring or rewriting still-required sections of old or obsolete code so the codebase has one current implementation path.
+- Clean up obsolete code, adapters, fallback branches, tests, documentation, and call sites related to the task.
 - Use parameterized queries, avoid unsafe rendering, and never hardcode secrets.
 - Do not add dependencies without clear justification.
 - Before finishing, check for duplication, broken call sites, dead code, stale references, and regressions at system boundaries.
@@ -68,6 +69,7 @@
 - Write code that is easy to inspect, debug, and extend by another engineer without hidden assumptions.
 - Add concise comments only where the intent, invariant, or non-obvious tradeoff is not self-evident from the code.
 - Remove dead branches, stale helpers, and speculative hooks rather than leaving partial scaffolding behind.
+- Remove legacy-only branches and compatibility layers when replacing behavior; do not leave old paths beside the new implementation.
 - Prefer deterministic behavior and reproducible outcomes over incidental side effects.
 - Keep files cohesive; if a file starts carrying multiple unrelated responsibilities, split it.
 - Avoid premature optimization, but do not ignore obviously poor complexity in hot paths or frequently updated systems.
