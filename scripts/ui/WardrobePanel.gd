@@ -77,7 +77,8 @@ func _notification(what: int) -> void:
 
 func _build_categories() -> void:
 	for child in _category_bar.get_children():
-		child.queue_free()
+		_category_bar.remove_child(child)
+		child.free()
 	var slots: Array[String] = ["all"]
 	for item in repo.wardrobe:
 		var slot = String(item.get("slot", "misc"))
@@ -97,7 +98,8 @@ func _refresh_items() -> void:
 	if _grid == null or tile_scene == null:
 		return
 	for child in _grid.get_children():
-		child.queue_free()
+		_grid.remove_child(child)
+		child.free()
 	var visible_count := 0
 	for item in _available_items:
 		var item_slot = String(item.get("slot", "misc"))
