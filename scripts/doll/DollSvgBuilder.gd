@@ -60,7 +60,7 @@ const BASE_PIVOTS := {
 
 static func build_svg(repo: ContentRepository, outfit: Variant, options: Dictionary = {}) -> String:
 	var variant = outfit.variant
-	var pose = repo.pose(outfit.pose_id)
+	var pose = options.get("poseOverride", repo.pose(outfit.pose_id))
 	var layers := {}
 	for layer in LAYER_ORDER:
 		layers[layer] = []
@@ -169,6 +169,21 @@ static func top_visible_equipped_item_id_at(repo: ContentRepository, outfit: Var
 				if bounds.has_point(actor_position):
 					top_item_id = String(item_id)
 	return top_item_id
+
+
+static func body_part_actor_bounds(repo: ContentRepository, variant: String, pose: Dictionary, part: Dictionary) -> Rect2:
+	var part_id = String(part.get("id", ""))
+	var pivot = _pivot_for(repo, variant, part_id)
+	var source_bounds = _svg_markup_bounds(_resolve_body_part_markup(part, pose))
+	if source_bounds.size.x > 0.0 and source_bounds.size.y > 0.0:
+		source_bounds = _actor_space_rect(source_bounds, repo.sample_meta.get("variants", {}).get(variant, {}))
+	else:
+		source_bounds = Rect2(Vector2(float(pivot.get("x", 0.0)) - 64.0, float(pivot.get("y", 0.0)) - 64.0), Vector2(128.0, 128.0))
+	source_bounds = source_bounds.grow(18.0)
+	var transform := Transform2D.IDENTITY
+	for chain_part_id in _transform_chain_for_target(repo, variant, part_id):
+		transform = transform * _pose_transform_matrix(pose, chain_part_id, _pivot_for(repo, variant, chain_part_id))
+	return _transformed_rect(source_bounds, transform)
 
 
 static func _body_part_svg(repo: ContentRepository, outfit: Variant, pose: Dictionary, part: Dictionary, tokens: Dictionary) -> String:

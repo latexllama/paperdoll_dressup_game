@@ -71,6 +71,25 @@ func test_pose_canvas_selection_does_not_dirty_draft() -> void:
 	assert_false(editor._draft.is_dirty())
 
 
+func test_body_rig_canvas_selection_updates_record_without_dirtying_draft() -> void:
+	var editor = load("res://scenes/ui/DevContentEditor.tscn").instantiate()
+	add_child_autoqfree(editor)
+	await get_tree().process_frame
+	var repo := ContentRepository.new()
+	var validation = repo.load_all()
+	assert_true(validation.get("ok", false), "; ".join(validation.get("errors", [])))
+	editor.configure(repo, SvgTextureCache.new())
+	editor._section = "body_rig"
+	editor._selected_variant = "female"
+	var target_part = String(repo.body_parts_for_variant("female")[1].get("id", ""))
+	editor._draft.mark_clean()
+
+	editor._on_body_rig_canvas_part_selected(target_part)
+
+	assert_eq(editor._selected_id, target_part)
+	assert_false(editor._draft.is_dirty())
+
+
 func test_pose_canvas_ik_updates_upper_and_forearm_transforms() -> void:
 	var editor = load("res://scenes/ui/DevContentEditor.tscn").instantiate()
 	add_child_autoqfree(editor)

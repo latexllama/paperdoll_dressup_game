@@ -40,6 +40,7 @@ var _pose_show_pivots := true
 var _pose_show_guides := true
 var _pose_show_rest_ghost := true
 var _pose_position_snap := 1.0
+var _syncing_body_rig_zoom := false
 
 @onready var _section_option: OptionButton = %SectionOption
 @onready var _validate_button: Button = %ValidateButton
@@ -54,6 +55,11 @@ var _pose_position_snap := 1.0
 @onready var _form_content: VBoxContainer = %FormContent
 @onready var _preview: TextureRect = %PreviewTexture
 @onready var _preview_status: Label = %PreviewStatus
+@onready var _body_rig_canvas = %BodyRigPreviewCanvas
+@onready var _body_rig_controls: Control = %BodyRigPreviewControls
+@onready var _body_rig_zoom_slider: HSlider = %BodyRigZoomSlider
+@onready var _reset_body_rig_view_button: Button = %ResetBodyRigViewButton
+@onready var _frame_body_part_button: Button = %FrameBodyPartButton
 @onready var _pose_canvas = %PosePreviewCanvas
 @onready var _lattice_canvas: Control = %LatticeCanvas
 @onready var _import_dialog: FileDialog = %SvgImportDialog
@@ -74,6 +80,12 @@ func _ready() -> void:
 	_duplicate_button.pressed.connect(_on_duplicate_pressed)
 	_delete_button.pressed.connect(_on_delete_pressed)
 	_lattice_canvas.point_moved.connect(_on_lattice_point_moved)
+	_body_rig_canvas.part_selected.connect(_on_body_rig_canvas_part_selected)
+	_body_rig_canvas.zoom_changed.connect(_on_body_rig_canvas_zoom_changed)
+	_body_rig_canvas.status_changed.connect(_set_status)
+	_body_rig_zoom_slider.value_changed.connect(_on_body_rig_zoom_slider_changed)
+	_reset_body_rig_view_button.pressed.connect(_on_reset_body_rig_view_pressed)
+	_frame_body_part_button.pressed.connect(_on_frame_body_part_pressed)
 	_pose_canvas.part_selected.connect(_on_pose_canvas_part_selected)
 	_pose_canvas.ik_chain_changed.connect(_on_pose_canvas_ik_chain_changed)
 	_pose_canvas.edit_finished.connect(_on_pose_canvas_edit_finished)
@@ -83,6 +95,8 @@ func _ready() -> void:
 	_body_rig_export_all_dialog.file_selected.connect(_on_body_rig_export_all_file_selected)
 	_discard_dialog.confirmed.connect(_close_and_discard_draft)
 	_lattice_canvas.visible = false
+	_body_rig_canvas.visible = false
+	_body_rig_controls.visible = false
 	_pose_canvas.visible = false
 
 
@@ -279,6 +293,8 @@ func _render_form() -> void:
 	_preview.visible = true
 	_preview_status.text = ""
 	_lattice_canvas.visible = false
+	_body_rig_canvas.visible = false
+	_body_rig_controls.visible = false
 	_pose_canvas.visible = false
 	if repo == null:
 		_set_status("Content repository is not configured.")
@@ -931,13 +947,21 @@ func _refresh_asset_preview(asset: Dictionary) -> void:
 func _refresh_body_preview() -> void:
 	if texture_cache == null:
 		return
-	_preview.visible = true
+	_preview.texture = null
+	_preview.visible = false
+	_body_rig_canvas.visible = true
+	_body_rig_controls.visible = true
 	_pose_canvas.visible = false
 	var draft_repo = _draft.repository_clone()
 	var outfit = OutfitStateScript.new(draft_repo.starting_outfit_snapshot())
 	outfit.variant = _selected_variant
-	_preview.texture = texture_cache.texture_from_svg(DollSvgBuilder.build_svg(draft_repo, outfit, {"showPivots": true}), 0.18)
-	_preview_status.text = "Body rig preview with pivots."
+	outfit.equipped_item_ids.clear()
+	var zero_pose := {"id": "__body_rig_zero__", "parts": {}, "sprites": {}}
+	var texture = texture_cache.texture_from_svg(DollSvgBuilder.build_svg(draft_repo, outfit, {"poseOverride": zero_pose}), 0.18)
+	_body_rig_canvas.configure(draft_repo, _selected_variant, _selected_id, texture, {"pose": zero_pose})
+	_sync_body_rig_zoom_slider(_body_rig_canvas.zoom)
+	_frame_body_part_button.disabled = _selected_id == ""
+	_preview_status.text = "Body rig preview: click body parts to select; middle-drag pans and wheel zooms."
 
 
 func _refresh_pose_preview(pose: Dictionary) -> void:
@@ -1070,6 +1094,39 @@ func _on_lattice_point_moved(_index: int, _point: Dictionary) -> void:
 	_mark_changed("Moved lattice point.", false, false)
 
 
+func _on_body_rig_canvas_part_selected(part_id: String) -> void:
+	if _section != SECTION_BODY_RIG:
+		return
+	_selected_id = part_id
+	_selected_svg_variation_id = ""
+	_selected_lattice_id = ""
+	_populate_record_list()
+	_render_form()
+	_set_status("Selected body part %s." % part_id)
+
+
+func _on_body_rig_canvas_zoom_changed(value: float) -> void:
+	_sync_body_rig_zoom_slider(value)
+
+
+func _on_body_rig_zoom_slider_changed(value: float) -> void:
+	if _syncing_body_rig_zoom:
+		return
+	_body_rig_canvas.set_zoom(value)
+
+
+func _on_reset_body_rig_view_pressed() -> void:
+	_body_rig_canvas.reset_view()
+	_set_status("Reset body rig preview view.")
+
+
+func _on_frame_body_part_pressed() -> void:
+	if _selected_id == "":
+		_set_status("Select a body part to frame.")
+		return
+	_body_rig_canvas.frame_part(_selected_id)
+
+
 func _on_pose_canvas_part_selected(part_id: String) -> void:
 	if _section != SECTION_POSES:
 		return
@@ -1122,6 +1179,14 @@ func _refresh_current_preview_only() -> void:
 			_refresh_body_preview()
 		SECTION_POSES:
 			_refresh_pose_preview(_selected_record())
+
+
+func _sync_body_rig_zoom_slider(value: float) -> void:
+	if _body_rig_zoom_slider == null:
+		return
+	_syncing_body_rig_zoom = true
+	_body_rig_zoom_slider.value = value
+	_syncing_body_rig_zoom = false
 
 
 func _update_dirty_label() -> void:

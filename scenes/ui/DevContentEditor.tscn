@@ -1,8 +1,9 @@
-[gd_scene load_steps=4 format=3]
+[gd_scene load_steps=5 format=3]
 
 [ext_resource type="Script" path="res://scripts/ui/DevContentEditor.gd" id="1_script"]
 [ext_resource type="Script" path="res://scripts/ui/LatticeCanvas.gd" id="2_lattice"]
 [ext_resource type="PackedScene" path="res://scenes/ui/PosePreviewCanvas.tscn" id="3_pose"]
+[ext_resource type="PackedScene" path="res://scenes/ui/BodyRigPreviewCanvas.tscn" id="4_body_rig"]
 
 [node name="DevContentEditor" type="Window"]
 title = "Dev Content Editor"
@@ -128,6 +129,41 @@ layout_mode = 2
 size_flags_vertical = 3
 expand_mode = 1
 stretch_mode = 5
+
+[node name="BodyRigPreviewCanvas" parent="Margin/EditorRoot/EditorBody/WorkArea/PreviewColumn" instance=ExtResource("4_body_rig")]
+unique_name_in_owner = true
+visible = false
+layout_mode = 2
+size_flags_vertical = 3
+
+[node name="BodyRigPreviewControls" type="HBoxContainer" parent="Margin/EditorRoot/EditorBody/WorkArea/PreviewColumn"]
+unique_name_in_owner = true
+visible = false
+layout_mode = 2
+theme_override_constants/separation = 6
+
+[node name="ZoomLabel" type="Label" parent="Margin/EditorRoot/EditorBody/WorkArea/PreviewColumn/BodyRigPreviewControls"]
+layout_mode = 2
+text = "Zoom"
+
+[node name="BodyRigZoomSlider" type="HSlider" parent="Margin/EditorRoot/EditorBody/WorkArea/PreviewColumn/BodyRigPreviewControls"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+min_value = 0.25
+max_value = 4.0
+step = 0.05
+value = 1.0
+
+[node name="ResetBodyRigViewButton" type="Button" parent="Margin/EditorRoot/EditorBody/WorkArea/PreviewColumn/BodyRigPreviewControls"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Reset View"
+
+[node name="FrameBodyPartButton" type="Button" parent="Margin/EditorRoot/EditorBody/WorkArea/PreviewColumn/BodyRigPreviewControls"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Frame Body Part"
 
 [node name="PosePreviewCanvas" parent="Margin/EditorRoot/EditorBody/WorkArea/PreviewColumn" instance=ExtResource("3_pose")]
 unique_name_in_owner = true
