@@ -98,6 +98,16 @@ func test_lattice_model_create_resize_drag_reset_delete_and_deform() -> void:
 	assert_false(part["latticeVariations"].has("wide"))
 
 
+func test_lattice_bounds_focus_svg_geometry_not_wrapper_or_style_numbers() -> void:
+	var markup = "<svg viewBox=\"0 0 2400 3100\"><g data-source-id=\"female-mouth-Normal-10000\"><path d=\"M655.96,405.35 C641.67,406.63 623.35,410.68 613.48,404.71 L612,430 L700,430 Z\" fill=\"#f37070\"/></g></svg>"
+
+	var bounds = Models.bounds_for_markup(markup)
+
+	assert_gt(float(bounds["x"]), 600.0)
+	assert_lt(float(bounds["width"]), 100.0)
+	assert_lt(float(bounds["height"]), 40.0)
+
+
 func test_pose_edit_validation_accepts_valid_part_and_rejects_invalid_part() -> void:
 	var repo := ContentRepository.new()
 	var body_part = {

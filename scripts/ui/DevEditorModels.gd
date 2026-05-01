@@ -178,11 +178,11 @@ static func reset_lattice_points(variation: Dictionary) -> void:
 
 
 static func bounds_for_markup(markup: String) -> Dictionary:
+	var geometry_bounds = _extract_geometry_bounds(markup)
+	if not geometry_bounds.is_empty():
+		return geometry_bounds
 	var view_box = _extract_view_box(markup)
-	if not view_box.is_empty():
-		return view_box
-	var path_bounds = _extract_numeric_bounds(markup)
-	return path_bounds if not path_bounds.is_empty() else _default_bounds()
+	return view_box if not view_box.is_empty() else _default_bounds()
 
 
 static func variation_ids_for_part(part: Dictionary) -> Array[String]:
@@ -230,29 +230,267 @@ static func _extract_view_box(markup: String) -> Dictionary:
 	}
 
 
-static func _extract_numeric_bounds(markup: String) -> Dictionary:
-	var regex := RegEx.new()
-	regex.compile("[-+]?(?:(?:\\d*\\.\\d+)|(?:\\d+\\.?))(?:[eE][-+]?\\d+)?")
-	var numbers: Array[float] = []
-	for match in regex.search_all(markup):
-		numbers.append(float(match.get_string()))
-	if numbers.size() < 4:
+static func _extract_geometry_bounds(markup: String) -> Dictionary:
+	var points: Array = []
+	_append_path_points(markup, points)
+	_append_rect_points(markup, points)
+	_append_circle_points(markup, points)
+	_append_ellipse_points(markup, points)
+	_append_line_points(markup, points)
+	_append_poly_points(markup, "polygon", points)
+	_append_poly_points(markup, "polyline", points)
+	return _bounds_from_points(points)
+
+
+static func _append_path_points(markup: String, points: Array) -> void:
+	for attributes in _element_attributes(markup, "path"):
+		if _is_hidden_shape(attributes) or not attributes.has("d"):
+			continue
+		_append_path_data_points(String(attributes["d"]), points)
+
+
+static func _append_rect_points(markup: String, points: Array) -> void:
+	for attributes in _element_attributes(markup, "rect"):
+		if _is_hidden_shape(attributes):
+			continue
+		var rect_x = _attribute_float(attributes, "x", 0.0)
+		var rect_y = _attribute_float(attributes, "y", 0.0)
+		var rect_width = _attribute_float(attributes, "width", 0.0)
+		var rect_height = _attribute_float(attributes, "height", 0.0)
+		if rect_width <= 0.0 or rect_height <= 0.0:
+			continue
+		_append_rect_bounds(points, rect_x, rect_y, rect_width, rect_height)
+
+
+static func _append_circle_points(markup: String, points: Array) -> void:
+	for attributes in _element_attributes(markup, "circle"):
+		if _is_hidden_shape(attributes):
+			continue
+		var center_x = _attribute_float(attributes, "cx", 0.0)
+		var center_y = _attribute_float(attributes, "cy", 0.0)
+		var radius = maxf(0.0, _attribute_float(attributes, "r", 0.0))
+		if radius <= 0.0:
+			continue
+		_append_rect_bounds(points, center_x - radius, center_y - radius, radius * 2.0, radius * 2.0)
+
+
+static func _append_ellipse_points(markup: String, points: Array) -> void:
+	for attributes in _element_attributes(markup, "ellipse"):
+		if _is_hidden_shape(attributes):
+			continue
+		var center_x = _attribute_float(attributes, "cx", 0.0)
+		var center_y = _attribute_float(attributes, "cy", 0.0)
+		var radius_x = maxf(0.0, _attribute_float(attributes, "rx", 0.0))
+		var radius_y = maxf(0.0, _attribute_float(attributes, "ry", 0.0))
+		if radius_x <= 0.0 or radius_y <= 0.0:
+			continue
+		_append_rect_bounds(points, center_x - radius_x, center_y - radius_y, radius_x * 2.0, radius_y * 2.0)
+
+
+static func _append_line_points(markup: String, points: Array) -> void:
+	for attributes in _element_attributes(markup, "line"):
+		if _is_hidden_shape(attributes):
+			continue
+		points.append(Vector2(_attribute_float(attributes, "x1", 0.0), _attribute_float(attributes, "y1", 0.0)))
+		points.append(Vector2(_attribute_float(attributes, "x2", 0.0), _attribute_float(attributes, "y2", 0.0)))
+
+
+static func _append_poly_points(markup: String, tag_name: String, points: Array) -> void:
+	for attributes in _element_attributes(markup, tag_name):
+		if _is_hidden_shape(attributes) or not attributes.has("points"):
+			continue
+		var numbers = _numbers_from_text(String(attributes["points"]))
+		for index in range(0, numbers.size() - 1, 2):
+			points.append(Vector2(numbers[index], numbers[index + 1]))
+
+
+static func _append_path_data_points(path_data: String, points: Array) -> void:
+	var tokens = _tokenize_path_data(path_data)
+	var current := Vector2.ZERO
+	var start := Vector2.ZERO
+	var index := 0
+	var command := ""
+	while index < tokens.size():
+		if _is_svg_path_command(tokens[index]):
+			command = tokens[index]
+			index += 1
+		if command == "":
+			break
+		var upper = command.to_upper()
+		var relative = command != upper
+		if upper == "M":
+			var first := true
+			while index < tokens.size() and not _is_svg_path_command(tokens[index]):
+				if not _path_has_numbers(tokens, index, 2):
+					return
+				var next_point = _read_path_point(tokens, index, current, relative)
+				index += 2
+				points.append(next_point)
+				current = next_point
+				if first:
+					start = next_point
+				first = false
+		elif upper == "L" or upper == "T":
+			while index < tokens.size() and not _is_svg_path_command(tokens[index]):
+				if not _path_has_numbers(tokens, index, 2):
+					return
+				var next_point = _read_path_point(tokens, index, current, relative)
+				index += 2
+				points.append(next_point)
+				current = next_point
+		elif upper == "H":
+			while index < tokens.size() and not _is_svg_path_command(tokens[index]):
+				if not _path_has_numbers(tokens, index, 1):
+					return
+				var next_x = float(tokens[index]) + (current.x if relative else 0.0)
+				index += 1
+				current = Vector2(next_x, current.y)
+				points.append(current)
+		elif upper == "V":
+			while index < tokens.size() and not _is_svg_path_command(tokens[index]):
+				if not _path_has_numbers(tokens, index, 1):
+					return
+				var next_y = float(tokens[index]) + (current.y if relative else 0.0)
+				index += 1
+				current = Vector2(current.x, next_y)
+				points.append(current)
+		elif upper == "C":
+			while index < tokens.size() and not _is_svg_path_command(tokens[index]):
+				if not _path_has_numbers(tokens, index, 6):
+					return
+				var control_a = _read_path_point(tokens, index, current, relative)
+				var control_b = _read_path_point(tokens, index + 2, current, relative)
+				var next_point = _read_path_point(tokens, index + 4, current, relative)
+				index += 6
+				points.append(control_a)
+				points.append(control_b)
+				points.append(next_point)
+				current = next_point
+		elif upper == "Q" or upper == "S":
+			while index < tokens.size() and not _is_svg_path_command(tokens[index]):
+				if not _path_has_numbers(tokens, index, 4):
+					return
+				var control = _read_path_point(tokens, index, current, relative)
+				var next_point = _read_path_point(tokens, index + 2, current, relative)
+				index += 4
+				points.append(control)
+				points.append(next_point)
+				current = next_point
+		elif upper == "A":
+			while index < tokens.size() and not _is_svg_path_command(tokens[index]):
+				if not _path_has_numbers(tokens, index, 7):
+					return
+				var radius_x = absf(float(tokens[index]))
+				var radius_y = absf(float(tokens[index + 1]))
+				index += 5
+				var next_point = _read_path_point(tokens, index, current, relative)
+				index += 2
+				_append_rect_bounds(points, current.x - radius_x, current.y - radius_y, radius_x * 2.0, radius_y * 2.0)
+				_append_rect_bounds(points, next_point.x - radius_x, next_point.y - radius_y, radius_x * 2.0, radius_y * 2.0)
+				points.append(next_point)
+				current = next_point
+		elif upper == "Z":
+			current = start
+			points.append(current)
+		else:
+			return
+
+
+static func _element_attributes(markup: String, tag_name: String) -> Array:
+	var element_regex := RegEx.new()
+	element_regex.compile("<%s\\b([^>]*)>" % tag_name)
+	var attribute_regex := RegEx.new()
+	attribute_regex.compile("([:\\w-]+)\\s*=\\s*([\"'])(.*?)\\2")
+	var results: Array = []
+	for element_match in element_regex.search_all(markup):
+		var attributes := {}
+		for attribute_match in attribute_regex.search_all(element_match.get_string(1)):
+			attributes[attribute_match.get_string(1)] = attribute_match.get_string(3)
+		results.append(attributes)
+	return results
+
+
+static func _is_hidden_shape(attributes: Dictionary) -> bool:
+	if String(attributes.get("display", "")).strip_edges().to_lower() == "none":
+		return true
+	if String(attributes.get("visibility", "")).strip_edges().to_lower() == "hidden":
+		return true
+	if _attribute_float(attributes, "opacity", 1.0) <= 0.0:
+		return true
+	var fill = String(attributes.get("fill", "")).strip_edges().to_lower()
+	var stroke = String(attributes.get("stroke", "")).strip_edges().to_lower()
+	return fill == "none" and (stroke == "" or stroke == "none")
+
+
+static func _attribute_float(attributes: Dictionary, key: String, fallback: float) -> float:
+	if not attributes.has(key):
+		return fallback
+	return String(attributes[key]).to_float()
+
+
+static func _append_rect_bounds(points: Array, rect_x: float, rect_y: float, rect_width: float, rect_height: float) -> void:
+	points.append(Vector2(rect_x, rect_y))
+	points.append(Vector2(rect_x + rect_width, rect_y + rect_height))
+
+
+static func _bounds_from_points(points: Array) -> Dictionary:
+	if points.is_empty():
 		return {}
-	var min_x = numbers[0]
-	var max_x = numbers[0]
-	var min_y = numbers[1]
-	var max_y = numbers[1]
-	for index in range(0, numbers.size() - 1, 2):
-		min_x = minf(min_x, numbers[index])
-		max_x = maxf(max_x, numbers[index])
-		min_y = minf(min_y, numbers[index + 1])
-		max_y = maxf(max_y, numbers[index + 1])
+	var first_point: Vector2 = points[0]
+	var min_x = first_point.x
+	var max_x = first_point.x
+	var min_y = first_point.y
+	var max_y = first_point.y
+	for point_value in points:
+		var point: Vector2 = point_value
+		min_x = minf(min_x, point.x)
+		max_x = maxf(max_x, point.x)
+		min_y = minf(min_y, point.y)
+		max_y = maxf(max_y, point.y)
 	return {
 		"x": min_x,
 		"y": min_y,
 		"width": maxf(1.0, max_x - min_x),
 		"height": maxf(1.0, max_y - min_y),
 	}
+
+
+static func _numbers_from_text(text: String) -> Array[float]:
+	var regex := RegEx.new()
+	regex.compile("[-+]?(?:(?:\\d*\\.\\d+)|(?:\\d+\\.?))(?:[eE][-+]?\\d+)?")
+	var numbers: Array[float] = []
+	for match in regex.search_all(text):
+		numbers.append(float(match.get_string()))
+	return numbers
+
+
+static func _tokenize_path_data(path_data: String) -> Array[String]:
+	var regex := RegEx.new()
+	regex.compile("[AaCcHhLlMmQqSsTtVvZz]|[-+]?(?:(?:\\d*\\.\\d+)|(?:\\d+\\.?))(?:[eE][-+]?\\d+)?")
+	var tokens: Array[String] = []
+	for match in regex.search_all(path_data):
+		tokens.append(match.get_string())
+	return tokens
+
+
+static func _read_path_point(tokens: Array[String], token_index: int, current: Vector2, relative: bool) -> Vector2:
+	return Vector2(
+		float(tokens[token_index]) + (current.x if relative else 0.0),
+		float(tokens[token_index + 1]) + (current.y if relative else 0.0)
+	)
+
+
+static func _is_svg_path_command(token: String) -> bool:
+	return token.length() == 1 and "AaCcHhLlMmQqSsTtVvZz".contains(token)
+
+
+static func _path_has_numbers(tokens: Array[String], token_index: int, count: int) -> bool:
+	if token_index + count > tokens.size():
+		return false
+	for number_index in range(count):
+		if _is_svg_path_command(tokens[token_index + number_index]):
+			return false
+	return true
 
 
 static func _default_bounds() -> Dictionary:
