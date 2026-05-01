@@ -569,11 +569,11 @@ func _build_body_rig_form() -> void:
 		_add_note("Selected body part is missing a valid pivot.")
 		return
 	var pivot: Dictionary = part["pivot"]
-	_add_number("Pivot X", float(pivot.get("x", 0.0)), -2000.0, 4000.0, 1.0, func(value: float) -> void:
+	_add_number_slider_below("Pivot X", float(pivot.get("x", 0.0)), -2000.0, 4000.0, 1.0, func(value: float) -> void:
 		pivot["x"] = value
 		_mark_changed("Updated pivot x.")
 	)
-	_add_number("Pivot Y", float(pivot.get("y", 0.0)), -2000.0, 5000.0, 1.0, func(value: float) -> void:
+	_add_number_slider_below("Pivot Y", float(pivot.get("y", 0.0)), -2000.0, 5000.0, 1.0, func(value: float) -> void:
 		pivot["y"] = value
 		_mark_changed("Updated pivot y.")
 	)
@@ -1531,6 +1531,57 @@ func _add_number(label: String, value: float, min_value: float, max_value: float
 		spin.value_changed.connect(func(next_value: float) -> void:
 			on_change.call(next_value)
 		)
+
+
+func _add_number_slider_below(label: String, value: float, min_value: float, max_value: float, step: float, on_change: Callable) -> void:
+	var control_id = label.replace(" ", "")
+	var row = _add_row()
+	var label_node := Label.new()
+	label_node.text = label
+	label_node.custom_minimum_size.x = 170.0
+	label_node.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	row.add_child(label_node)
+	var spin := SpinBox.new()
+	spin.name = "%sSpinBox" % control_id
+	spin.min_value = min_value
+	spin.max_value = max_value
+	spin.step = step
+	spin.value = clampf(value, min_value, max_value)
+	spin.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	row.add_child(spin)
+
+	var slider_row = _add_row()
+	var spacer := Control.new()
+	spacer.custom_minimum_size.x = 170.0
+	slider_row.add_child(spacer)
+	var slider_node := HSlider.new()
+	slider_node.name = "%sSlider" % control_id
+	slider_node.min_value = min_value
+	slider_node.max_value = max_value
+	slider_node.step = step
+	slider_node.value = spin.value
+	slider_node.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	slider_row.add_child(slider_node)
+
+	var sync := {"active": false}
+	spin.value_changed.connect(func(next_value: float) -> void:
+		if bool(sync["active"]):
+			return
+		sync["active"] = true
+		if not is_equal_approx(slider_node.value, next_value):
+			slider_node.value = next_value
+		sync["active"] = false
+		on_change.call(next_value)
+	)
+	slider_node.value_changed.connect(func(next_value: float) -> void:
+		if bool(sync["active"]):
+			return
+		sync["active"] = true
+		if not is_equal_approx(spin.value, next_value):
+			spin.value = next_value
+		sync["active"] = false
+		on_change.call(next_value)
+	)
 
 
 func _button(text: String, on_pressed: Callable) -> Button:

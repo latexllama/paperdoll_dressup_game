@@ -90,6 +90,32 @@ func test_body_rig_canvas_selection_updates_record_without_dirtying_draft() -> v
 	assert_false(editor._draft.is_dirty())
 
 
+func test_body_rig_pivot_sliders_update_selected_part() -> void:
+	var editor = load("res://scenes/ui/DevContentEditor.tscn").instantiate()
+	add_child_autoqfree(editor)
+	await get_tree().process_frame
+	var repo := ContentRepository.new()
+	var validation = repo.load_all()
+	assert_true(validation.get("ok", false), "; ".join(validation.get("errors", [])))
+	editor.configure(repo, SvgTextureCache.new())
+	editor._section = "body_rig"
+	editor._selected_variant = "female"
+	editor._selected_id = "tail"
+	editor._render_form()
+	var part = editor._selected_record()
+	var pivot_x_slider = editor._form_content.find_child("PivotXSlider", true, false) as HSlider
+	var pivot_x_spin = editor._form_content.find_child("PivotXSpinBox", true, false) as SpinBox
+	assert_not_null(pivot_x_slider)
+	assert_not_null(pivot_x_spin)
+	editor._draft.mark_clean()
+
+	pivot_x_slider.value = 1500.0
+
+	assert_eq(float(part["pivot"]["x"]), 1500.0)
+	assert_eq(pivot_x_spin.value, 1500.0)
+	assert_true(editor._draft.is_dirty())
+
+
 func test_pose_canvas_ik_updates_upper_and_forearm_transforms() -> void:
 	var editor = load("res://scenes/ui/DevContentEditor.tscn").instantiate()
 	add_child_autoqfree(editor)
