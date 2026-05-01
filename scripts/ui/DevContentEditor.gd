@@ -41,6 +41,9 @@ var _pose_show_guides := true
 var _pose_show_rest_ghost := true
 var _pose_position_snap := 1.0
 var _syncing_body_rig_zoom := false
+var _creation_id_edit := {}
+var _duplicate_confirm_callback := Callable()
+var _duplicate_id_records: Variant = []
 
 @onready var _section_option: OptionButton = %SectionOption
 @onready var _validate_button: Button = %ValidateButton
@@ -66,6 +69,10 @@ var _syncing_body_rig_zoom := false
 @onready var _body_part_export_dialog: FileDialog = %BodyPartExportDirDialog
 @onready var _body_rig_export_all_dialog: FileDialog = %BodyRigExportAllDialog
 @onready var _discard_dialog: ConfirmationDialog = %DiscardDraftDialog
+@onready var _create_id_dialog: ConfirmationDialog = %CreateIdDialog
+@onready var _create_id_prompt: Label = %CreateIdPromptLabel
+@onready var _create_id_edit: LineEdit = %CreateIdLineEdit
+@onready var _create_id_status: Label = %CreateIdStatusLabel
 
 
 func _ready() -> void:
@@ -94,6 +101,9 @@ func _ready() -> void:
 	_body_part_export_dialog.dir_selected.connect(_on_body_part_export_dir_selected)
 	_body_rig_export_all_dialog.file_selected.connect(_on_body_rig_export_all_file_selected)
 	_discard_dialog.confirmed.connect(_close_and_discard_draft)
+	_create_id_dialog.confirmed.connect(_on_create_id_confirmed)
+	_create_id_dialog.canceled.connect(_clear_duplicate_id_request)
+	_create_id_edit.text_changed.connect(_on_create_id_text_changed)
 	_lattice_canvas.visible = false
 	_body_rig_canvas.visible = false
 	_body_rig_controls.visible = false
@@ -101,6 +111,7 @@ func _ready() -> void:
 
 
 func _on_close_requested() -> void:
+	_clear_creation_id_edit()
 	if _draft.is_dirty():
 		_discard_dialog.popup_centered(Vector2i(460, 180))
 		return
@@ -114,6 +125,7 @@ func _unhandled_key_input(event: InputEvent) -> void:
 
 
 func _close_and_discard_draft() -> void:
+	_clear_creation_id_edit()
 	if repo != null:
 		_draft.load_from_repository(repo)
 	_update_dirty_label()
@@ -123,6 +135,7 @@ func _close_and_discard_draft() -> void:
 func configure(next_repo: ContentRepository, next_texture_cache: Variant) -> void:
 	repo = next_repo
 	texture_cache = next_texture_cache
+	_clear_creation_id_edit()
 	_draft.load_from_repository(repo)
 	if is_inside_tree():
 		_refresh_all()
@@ -136,6 +149,7 @@ func _setup_section_selector() -> void:
 
 
 func _on_section_selected(index: int) -> void:
+	_clear_creation_id_edit()
 	_section = String(_section_option.get_item_metadata(index))
 	_selected_id = ""
 	_selected_piece_index = 0
@@ -182,6 +196,7 @@ func _index_for_selected_id() -> int:
 
 
 func _on_record_selected(index: int) -> void:
+	_clear_creation_id_edit()
 	_selected_id = String(_record_list.get_item_metadata(index))
 	_selected_piece_index = 0
 	_selected_svg_variation_id = ""
@@ -190,6 +205,7 @@ func _on_record_selected(index: int) -> void:
 
 
 func _on_add_pressed() -> void:
+	_clear_creation_id_edit()
 	match _section:
 		SECTION_WARDROBE:
 			var item = Models.create_wardrobe_item(_draft.wardrobe)
@@ -221,6 +237,7 @@ func _on_add_pressed() -> void:
 			var pose = Models.create_pose(_draft.poses)
 			_draft.poses.append(pose)
 			_selected_id = String(pose["id"])
+	_begin_creation_id_edit(_section, "record", _selected_id)
 	_after_collection_edit("Added record.")
 
 
@@ -229,33 +246,72 @@ func _on_duplicate_pressed() -> void:
 	if record.is_empty():
 		_set_status("Select a record to duplicate.")
 		return
-	match _section:
+	_clear_creation_id_edit()
+	var duplicate_section := _section
+	var source_id := _selected_id
+	var variant_id := _selected_variant
+	var existing_records: Variant = _parts_for_selected_variant() if duplicate_section == SECTION_BODY_RIG else _records_for_section()
+	var default_id := Models.unique_id("%s-copy" % String(record.get("id", "record")), existing_records)
+	_request_duplicate_id(default_id, existing_records, "Duplicate %s" % _section_label(duplicate_section), func(next_id: String) -> void:
+		_duplicate_record_with_id(duplicate_section, source_id, next_id, variant_id)
+	)
+
+
+func _duplicate_record_with_id(source_section: String, source_id: String, duplicate_id: String, variant_id: String) -> void:
+	match source_section:
 		SECTION_WARDROBE:
-			var item = Models.duplicate_record(record, _draft.wardrobe)
-			var visual_id = String(record.get("visualId", ""))
+			var wardrobe_record = Models.record_by_id(_draft.wardrobe, source_id)
+			if wardrobe_record.is_empty():
+				_set_status("Duplicate failed: source wardrobe item no longer exists.")
+				return
+			var item = Models.duplicate_record(wardrobe_record, _draft.wardrobe)
+			item["id"] = duplicate_id
+			var visual_id = String(wardrobe_record.get("visualId", ""))
 			var source_visual = Models.record_by_id(_draft.equipment_visuals, visual_id)
 			if not source_visual.is_empty():
 				var visual_clone = Models.duplicate_record(source_visual, _draft.equipment_visuals)
+				visual_clone["id"] = Models.unique_id("%s-visual" % duplicate_id, _draft.equipment_visuals)
 				item["visualId"] = String(visual_clone["id"])
 				_draft.equipment_visuals.append(visual_clone)
 				Models.sync_wardrobe_pieces_from_visual(item, visual_clone)
 			_draft.wardrobe.append(item)
 			_selected_id = String(item["id"])
 		SECTION_VISUALS:
-			var visual_clone = Models.duplicate_record(record, _draft.equipment_visuals)
+			var visual_record = Models.record_by_id(_draft.equipment_visuals, source_id)
+			if visual_record.is_empty():
+				_set_status("Duplicate failed: source visual no longer exists.")
+				return
+			var visual_clone = Models.duplicate_record(visual_record, _draft.equipment_visuals)
+			visual_clone["id"] = duplicate_id
 			_draft.equipment_visuals.append(visual_clone)
 			_selected_id = String(visual_clone["id"])
 		SECTION_ASSETS:
-			var asset_clone = Models.duplicate_record(record, _draft.equipment_assets)
+			var asset_record = Models.record_by_id(_draft.equipment_assets, source_id)
+			if asset_record.is_empty():
+				_set_status("Duplicate failed: source asset no longer exists.")
+				return
+			var asset_clone = Models.duplicate_record(asset_record, _draft.equipment_assets)
+			asset_clone["id"] = duplicate_id
 			_draft.equipment_assets.append(asset_clone)
 			_selected_id = String(asset_clone["id"])
 		SECTION_BODY_RIG:
-			var parts = _parts_for_selected_variant()
-			var part_clone = Models.duplicate_record(record, parts)
-			parts.append(part_clone)
+			_selected_variant = variant_id
+			var variant_parts = _parts_for_selected_variant()
+			var part_record = Models.record_by_id(variant_parts, source_id)
+			if part_record.is_empty():
+				_set_status("Duplicate failed: source body part no longer exists.")
+				return
+			var part_clone = Models.duplicate_record(part_record, variant_parts)
+			part_clone["id"] = duplicate_id
+			variant_parts.append(part_clone)
 			_selected_id = String(part_clone["id"])
 		SECTION_POSES:
-			var pose_clone = Models.duplicate_record(record, _draft.poses)
+			var pose_record = Models.record_by_id(_draft.poses, source_id)
+			if pose_record.is_empty():
+				_set_status("Duplicate failed: source pose no longer exists.")
+				return
+			var pose_clone = Models.duplicate_record(pose_record, _draft.poses)
+			pose_clone["id"] = duplicate_id
 			_draft.poses.append(pose_clone)
 			_selected_id = String(pose_clone["id"])
 	_after_collection_edit("Duplicated record.")
@@ -265,6 +321,7 @@ func _on_delete_pressed() -> void:
 	if _selected_id == "":
 		_set_status("Select a record to delete.")
 		return
+	_clear_creation_id_edit()
 	match _section:
 		SECTION_WARDROBE:
 			_remove_record_by_id(_draft.wardrobe, _selected_id)
@@ -319,12 +376,8 @@ func _build_wardrobe_form() -> void:
 		return
 	_add_title("Wardrobe Item")
 	_add_line_edit("ID", String(item.get("id", "")), func(value: String) -> void:
-		var old_id = String(item.get("id", ""))
-		item["id"] = value
-		_selected_id = value
-		_update_record_list_labels()
-		_mark_changed("Updated wardrobe id from %s to %s." % [old_id, value], true)
-	)
+		_apply_record_id_edit(item, _draft.wardrobe, value, "wardrobe")
+	, not _is_creation_id_editable(_section, "record", String(item.get("id", ""))))
 	_add_line_edit("Name", String(item.get("name", "")), func(value: String) -> void:
 		item["name"] = value
 		_update_record_list_labels()
@@ -362,13 +415,10 @@ func _build_visual_form() -> void:
 		return
 	_add_title("Equipment Visual")
 	_add_line_edit("ID", String(visual.get("id", "")), func(value: String) -> void:
-		var old_id = String(visual.get("id", ""))
-		visual["id"] = value
-		_selected_id = value
-		Models.rename_visual_references(_draft.wardrobe, old_id, value)
-		_update_record_list_labels()
-		_mark_changed("Updated visual id.", true)
-	)
+		_apply_record_id_edit(visual, _draft.equipment_visuals, value, "visual", func(old_id: String, new_id: String) -> void:
+			Models.rename_visual_references(_draft.wardrobe, old_id, new_id)
+		)
+	, not _is_creation_id_editable(_section, "record", String(visual.get("id", ""))))
 	_add_line_edit("Name", String(visual.get("name", "")), func(value: String) -> void:
 		visual["name"] = value
 		_update_record_list_labels()
@@ -460,13 +510,10 @@ func _build_asset_form() -> void:
 		return
 	_add_title("SVG Asset")
 	_add_line_edit("ID", String(asset.get("id", "")), func(value: String) -> void:
-		var old_id = String(asset.get("id", ""))
-		asset["id"] = value
-		_selected_id = value
-		Models.rename_asset_references(_draft.equipment_visuals, old_id, value)
-		_update_record_list_labels()
-		_mark_changed("Updated asset id.", true)
-	)
+		_apply_record_id_edit(asset, _draft.equipment_assets, value, "asset", func(old_id: String, new_id: String) -> void:
+			Models.rename_asset_references(_draft.equipment_visuals, old_id, new_id)
+		)
+	, not _is_creation_id_editable(_section, "record", String(asset.get("id", ""))))
 	_add_line_edit("Name", String(asset.get("name", "")), func(value: String) -> void:
 		asset["name"] = value
 		_update_record_list_labels()
@@ -534,6 +581,8 @@ func _build_body_rig_form() -> void:
 	_add_title("Body Rig")
 	var variants := _body_variant_ids()
 	_add_option("Variant", _selected_variant, variants, func(value: String) -> void:
+		if value != _selected_variant:
+			_clear_creation_id_edit()
 		_selected_variant = value
 		_selected_id = ""
 		_refresh_all()
@@ -544,13 +593,10 @@ func _build_body_rig_form() -> void:
 		_add_note("No body part selected.")
 		return
 	_add_line_edit("Part ID", String(part.get("id", "")), func(value: String) -> void:
-		var old_id = String(part.get("id", ""))
-		part["id"] = value
-		_selected_id = value
-		Models.rename_body_part_references(_draft, old_id, value)
-		_update_record_list_labels()
-		_mark_changed("Updated body part id.", true)
-	)
+		_apply_record_id_edit(part, _parts_for_selected_variant(), value, "body part", func(old_id: String, new_id: String) -> void:
+			Models.rename_body_part_references(_draft, old_id, new_id)
+		)
+	, not _is_creation_id_editable(_section, "record", String(part.get("id", ""))))
 	var parent_options: Array[String] = [""]
 	parent_options.append_array(DollSvgBuilder.BASE_PIVOTS.keys())
 	for sibling in _parts_for_selected_variant():
@@ -612,32 +658,31 @@ func _build_body_svg_variations(part: Dictionary) -> void:
 	if not ids.has(_selected_svg_variation_id):
 		_selected_svg_variation_id = ""
 	_add_option("Variation", _selected_svg_variation_id, ids, func(value: String) -> void:
+		if value != _selected_svg_variation_id:
+			_clear_creation_id_edit()
 		_selected_svg_variation_id = value
 		_render_form()
 	)
 	var row = _add_button_row()
 	row.add_child(_button("Add SVG Variation", func() -> void:
+		_clear_creation_id_edit()
 		var next_id = Models.unique_id("customVariation", Models._variation_id_records(part))
 		variations[next_id] = String(part.get("svgMarkup", ""))
 		_selected_svg_variation_id = next_id
+		_begin_creation_id_edit(_section, "svg_variation", next_id, String(part.get("id", "")))
 		_mark_changed("Added SVG variation.", true, true)
 	))
 	row.add_child(_button("Remove SVG Variation", func() -> void:
 		if _selected_svg_variation_id != "":
+			_clear_creation_id_edit()
 			variations.erase(_selected_svg_variation_id)
 			_selected_svg_variation_id = ""
 			_mark_changed("Removed SVG variation.", true, true)
 	))
 	if _selected_svg_variation_id != "":
 		_add_line_edit("Variation ID", _selected_svg_variation_id, func(value: String) -> void:
-			if value == "" or value == _selected_svg_variation_id:
-				return
-			var markup = variations[_selected_svg_variation_id]
-			variations.erase(_selected_svg_variation_id)
-			variations[value] = markup
-			_selected_svg_variation_id = value
-			_mark_changed("Renamed SVG variation.", true, true)
-		)
+			_apply_svg_variation_id_edit(part, value)
+		, not _is_creation_id_editable(_section, "svg_variation", _selected_svg_variation_id, String(part.get("id", ""))))
 		_add_text_edit("Variation SVG Markup", String(variations.get(_selected_svg_variation_id, "")), func(value: String) -> void:
 			variations[_selected_svg_variation_id] = value
 			_mark_changed("Updated SVG variation.")
@@ -656,20 +701,25 @@ func _build_lattice_variations(part: Dictionary) -> void:
 	if not ids.has(_selected_lattice_id):
 		_selected_lattice_id = ""
 	_add_option("Lattice Variation", _selected_lattice_id, ids, func(value: String) -> void:
+		if value != _selected_lattice_id:
+			_clear_creation_id_edit()
 		_selected_lattice_id = value
 		_render_form()
 	)
 	var row = _add_button_row()
 	row.add_child(_button("Create Lattice", func() -> void:
+		_clear_creation_id_edit()
 		var created_variation = Models.create_lattice_variation(part)
 		var variation_id = String(created_variation.get("id", Models.unique_id("customLattice", Models._variation_id_records(part))))
 		created_variation.erase("id")
 		lattice_map[variation_id] = created_variation
 		_selected_lattice_id = variation_id
+		_begin_creation_id_edit(_section, "lattice_variation", variation_id, String(part.get("id", "")))
 		_mark_changed("Created lattice variation.", true, true)
 	))
 	row.add_child(_button("Delete Lattice", func() -> void:
 		if _selected_lattice_id != "":
+			_clear_creation_id_edit()
 			lattice_map.erase(_selected_lattice_id)
 			_selected_lattice_id = ""
 			_mark_changed("Deleted lattice variation.", true, true)
@@ -678,14 +728,8 @@ func _build_lattice_variations(part: Dictionary) -> void:
 		return
 	var selected_lattice: Dictionary = lattice_map[_selected_lattice_id]
 	_add_line_edit("Lattice ID", _selected_lattice_id, func(value: String) -> void:
-		if value == "" or value == _selected_lattice_id:
-			return
-		var copy = lattice_map[_selected_lattice_id]
-		lattice_map.erase(_selected_lattice_id)
-		lattice_map[value] = copy
-		_selected_lattice_id = value
-		_mark_changed("Renamed lattice variation.", true, true)
-	)
+		_apply_lattice_variation_id_edit(part, value)
+	, not _is_creation_id_editable(_section, "lattice_variation", _selected_lattice_id, String(part.get("id", ""))))
 	_add_option("Source Variation", String(selected_lattice.get("sourceVariationId", "")), _variation_source_ids(part), func(value: String) -> void:
 		_set_optional_string(selected_lattice, "sourceVariationId", value)
 		_mark_changed("Updated lattice source.", true, true)
@@ -729,11 +773,8 @@ func _build_pose_form() -> void:
 		return
 	_add_title("Pose")
 	_add_line_edit("ID", String(pose.get("id", "")), func(value: String) -> void:
-		pose["id"] = value
-		_selected_id = value
-		_update_record_list_labels()
-		_mark_changed("Updated pose id.", true)
-	)
+		_apply_record_id_edit(pose, _draft.poses, value, "pose")
+	, not _is_creation_id_editable(_section, "record", String(pose.get("id", ""))))
 	_add_line_edit("Name", String(pose.get("name", "")), func(value: String) -> void:
 		pose["name"] = value
 		_update_record_list_labels()
@@ -996,6 +1037,7 @@ func _on_save_all_pressed() -> void:
 	var result = _draft.save_all(repo)
 	_report_result("Saved all content.", result)
 	if result.get("ok", false):
+		_clear_creation_id_edit()
 		content_saved.emit()
 		_draft.load_from_repository(repo)
 		_refresh_all()
@@ -1004,6 +1046,7 @@ func _on_save_all_pressed() -> void:
 func _on_revert_pressed() -> void:
 	if repo == null:
 		return
+	_clear_creation_id_edit()
 	_draft.load_from_repository(repo)
 	_selected_id = ""
 	_selected_piece_index = 0
@@ -1097,6 +1140,7 @@ func _on_lattice_point_moved(_index: int, _point: Dictionary) -> void:
 func _on_body_rig_canvas_part_selected(part_id: String) -> void:
 	if _section != SECTION_BODY_RIG:
 		return
+	_clear_creation_id_edit()
 	_selected_id = part_id
 	_selected_svg_variation_id = ""
 	_selected_lattice_id = ""
@@ -1196,6 +1240,163 @@ func _update_dirty_label() -> void:
 
 func _set_status(message: String) -> void:
 	_status.text = message
+
+
+func _begin_creation_id_edit(section: String, id_kind: String, current_id: String, owner_id := "") -> void:
+	_creation_id_edit = {
+		"section": section,
+		"owner_id": owner_id,
+		"id_kind": id_kind,
+		"current_id": current_id,
+	}
+
+
+func _clear_creation_id_edit() -> void:
+	_creation_id_edit = {}
+
+
+func _is_creation_id_editable(section: String, id_kind: String, current_id: String, owner_id := "") -> bool:
+	return (
+		not _creation_id_edit.is_empty()
+		and String(_creation_id_edit.get("section", "")) == section
+		and String(_creation_id_edit.get("owner_id", "")) == owner_id
+		and String(_creation_id_edit.get("id_kind", "")) == id_kind
+		and String(_creation_id_edit.get("current_id", "")) == current_id
+	)
+
+
+func _update_creation_id_edit_current(current_id: String) -> void:
+	if not _creation_id_edit.is_empty():
+		_creation_id_edit["current_id"] = current_id
+
+
+func _apply_record_id_edit(record: Dictionary, records: Array, value: String, label: String, reference_sync := Callable()) -> void:
+	var old_id := String(record.get("id", ""))
+	if not _is_creation_id_editable(_section, "record", old_id):
+		return
+	var validation := _validate_new_id(value, records, old_id)
+	if not validation.get("ok", false):
+		_set_status("%s ID not updated: %s" % [label.capitalize(), "; ".join(validation.get("errors", []))])
+		return
+	var new_id := String(validation.get("id", ""))
+	if new_id == old_id:
+		return
+	record["id"] = new_id
+	_selected_id = new_id
+	_update_creation_id_edit_current(new_id)
+	if reference_sync.is_valid():
+		reference_sync.call(old_id, new_id)
+	_mark_changed("Updated new %s id." % label, true)
+
+
+func _apply_svg_variation_id_edit(part: Dictionary, value: String) -> void:
+	var owner_id := String(part.get("id", ""))
+	if not _is_creation_id_editable(_section, "svg_variation", _selected_svg_variation_id, owner_id):
+		return
+	var variations: Dictionary = part.get("variations", {})
+	var validation := _validate_new_id(value, Models._variation_id_records(part), _selected_svg_variation_id)
+	if not validation.get("ok", false):
+		_set_status("SVG variation ID not updated: %s" % "; ".join(validation.get("errors", [])))
+		return
+	var new_id := String(validation.get("id", ""))
+	if new_id == _selected_svg_variation_id:
+		return
+	var markup = variations[_selected_svg_variation_id]
+	variations.erase(_selected_svg_variation_id)
+	variations[new_id] = markup
+	_selected_svg_variation_id = new_id
+	_update_creation_id_edit_current(new_id)
+	_mark_changed("Updated new SVG variation id.", true)
+
+
+func _apply_lattice_variation_id_edit(part: Dictionary, value: String) -> void:
+	var owner_id := String(part.get("id", ""))
+	if not _is_creation_id_editable(_section, "lattice_variation", _selected_lattice_id, owner_id):
+		return
+	var lattice_map: Dictionary = part.get("latticeVariations", {})
+	var validation := _validate_new_id(value, Models._variation_id_records(part), _selected_lattice_id)
+	if not validation.get("ok", false):
+		_set_status("Lattice variation ID not updated: %s" % "; ".join(validation.get("errors", [])))
+		return
+	var new_id := String(validation.get("id", ""))
+	if new_id == _selected_lattice_id:
+		return
+	var lattice = lattice_map[_selected_lattice_id]
+	lattice_map.erase(_selected_lattice_id)
+	lattice_map[new_id] = lattice
+	_selected_lattice_id = new_id
+	_update_creation_id_edit_current(new_id)
+	_mark_changed("Updated new lattice variation id.", true, true)
+
+
+func _validate_new_id(value: String, records_or_keys: Variant, current_id := "") -> Dictionary:
+	var next_id := value.strip_edges()
+	if next_id == "":
+		return {"ok": false, "id": current_id, "errors": ["ID cannot be empty."]}
+	if next_id != current_id and _id_exists(records_or_keys, next_id):
+		return {"ok": false, "id": current_id, "errors": ["ID \"%s\" already exists." % next_id]}
+	return {"ok": true, "id": next_id, "errors": []}
+
+
+func _id_exists(records_or_keys: Variant, id: String) -> bool:
+	if records_or_keys is Array:
+		for record in records_or_keys:
+			if record is Dictionary and String(record.get("id", "")) == id:
+				return true
+	elif records_or_keys is Dictionary:
+		return records_or_keys.has(id)
+	return false
+
+
+func _request_duplicate_id(default_id: String, records_or_keys: Variant, title: String, confirm_callback: Callable) -> void:
+	_duplicate_confirm_callback = confirm_callback
+	_duplicate_id_records = records_or_keys
+	_create_id_dialog.title = title
+	_create_id_prompt.text = "Enter the ID to create for this duplicate."
+	_create_id_edit.text = default_id
+	_on_create_id_text_changed(default_id)
+	_create_id_dialog.popup_centered(Vector2i(460, 190))
+	_create_id_edit.call_deferred("grab_focus")
+	_create_id_edit.call_deferred("select_all")
+
+
+func _on_create_id_text_changed(value: String) -> void:
+	if not _duplicate_confirm_callback.is_valid():
+		return
+	var validation := _validate_new_id(value, _duplicate_id_records)
+	var ok_button := _create_id_dialog.get_ok_button()
+	if validation.get("ok", false):
+		_create_id_status.text = "ID is available."
+		ok_button.disabled = false
+	else:
+		_create_id_status.text = "; ".join(validation.get("errors", []))
+		ok_button.disabled = true
+
+
+func _on_create_id_confirmed() -> void:
+	if not _duplicate_confirm_callback.is_valid():
+		return
+	var validation := _validate_new_id(_create_id_edit.text, _duplicate_id_records)
+	if not validation.get("ok", false):
+		_create_id_status.text = "; ".join(validation.get("errors", []))
+		_create_id_dialog.popup_centered(Vector2i(460, 190))
+		return
+	var callback := _duplicate_confirm_callback
+	_clear_duplicate_id_request()
+	callback.call(String(validation.get("id", "")))
+
+
+func _clear_duplicate_id_request() -> void:
+	_duplicate_confirm_callback = Callable()
+	_duplicate_id_records = []
+	_create_id_status.text = ""
+
+
+func _section_label(section: String) -> String:
+	for entry in SECTIONS:
+		if String(entry.get("id", "")) == section:
+			return String(entry.get("label", "Record"))
+	return "Record"
 
 
 func _records_for_section() -> Array:
@@ -1373,11 +1574,13 @@ func _add_field(label_text: String, control: Control) -> void:
 
 func _add_line_edit(label: String, value: String, on_change: Callable, readonly := false) -> LineEdit:
 	var edit := LineEdit.new()
+	edit.name = "%sLineEdit" % _control_name_for_label(label)
 	edit.text = value
 	edit.editable = not readonly
-	edit.text_changed.connect(func(next_value: String) -> void:
-		on_change.call(next_value)
-	)
+	if not readonly:
+		edit.text_changed.connect(func(next_value: String) -> void:
+			on_change.call(next_value)
+		)
 	_add_field(label, edit)
 	return edit
 
@@ -1591,4 +1794,13 @@ func _button(text: String, on_pressed: Callable) -> Button:
 		on_pressed.call()
 	)
 	return button
+
+
+func _control_name_for_label(label: String) -> String:
+	var result := ""
+	for index in range(label.length()):
+		var character := label[index]
+		if character.is_valid_identifier() or character.is_valid_int():
+			result += character
+	return result
 
