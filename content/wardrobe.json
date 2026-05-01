@@ -2,15 +2,7 @@
   {
     "color": "#f6ead8",
     "description": "A comfortable everyday shirt.",
-    "hiddenUntilOwned": true,
     "id": "plain-tee",
-    "modifiers": [
-      {
-        "amount": 1.0,
-        "id": "confidence",
-        "source": "attribute"
-      }
-    ],
     "name": "Plain Tee",
     "pieces": [
       {
@@ -26,33 +18,14 @@
         "target": "rightArm"
       }
     ],
-    "price": 0.0,
-    "requiredSkillLevels": {
-
-    },
-    "setId": "starter-comfort",
     "slot": "top",
-    "styleRatings": {
-      "casual": 1.0
-    },
-    "styleTags": [
-      "casual"
-    ],
     "visualId": "plain-tee-visual"
   },
   {
     "accentColor": "#20475a",
     "color": "#66b7d6",
     "description": "Good for workouts and park trips.",
-    "hiddenUntilOwned": true,
     "id": "gym-hoodie",
-    "modifiers": [
-      {
-        "amount": 1.0,
-        "id": "athletics",
-        "source": "skill"
-      }
-    ],
     "name": "Gym Hoodie",
     "pieces": [
       {
@@ -76,39 +49,14 @@
         "target": "rightForearm"
       }
     ],
-    "price": 60.0,
-    "requiredSkillLevels": {
-      "athletics": 2.0
-    },
     "slot": "top",
-    "styleRatings": {
-      "casual": 1.0,
-      "sporty": 2.0
-    },
-    "styleTags": [
-      "sporty",
-      "casual"
-    ],
     "visualId": "gym-hoodie-visual"
   },
   {
     "accentColor": "#ffd166",
     "color": "#2f4550",
     "description": "Looks ready for promotion talks.",
-    "hiddenUntilOwned": true,
     "id": "office-blazer",
-    "modifiers": [
-      {
-        "amount": 1.0,
-        "id": "management",
-        "source": "skill"
-      },
-      {
-        "amount": 1.0,
-        "id": "bargaining",
-        "source": "skill"
-      }
-    ],
     "name": "Office Blazer",
     "pieces": [
       {
@@ -132,34 +80,13 @@
         "target": "rightForearm"
       }
     ],
-    "price": 120.0,
-    "requiredSkillLevels": {
-      "management": 2.0
-    },
-    "setId": "city-formal",
     "slot": "top",
-    "styleRatings": {
-      "career": 2.0,
-      "formal": 3.0
-    },
-    "styleTags": [
-      "formal",
-      "career"
-    ],
     "visualId": "office-blazer-visual"
   },
   {
     "color": "#f4a261",
     "description": "Easygoing shorts for home days.",
-    "hiddenUntilOwned": true,
     "id": "comfy-shorts",
-    "modifiers": [
-      {
-        "amount": 1.0,
-        "id": "time-management",
-        "source": "skill"
-      }
-    ],
     "name": "Comfy Shorts",
     "pieces": [
       {
@@ -175,32 +102,13 @@
         "target": "rightThigh"
       }
     ],
-    "price": 0.0,
-    "requiredSkillLevels": {
-
-    },
-    "setId": "starter-comfort",
     "slot": "bottom",
-    "styleRatings": {
-      "casual": 1.0
-    },
-    "styleTags": [
-      "casual"
-    ],
     "visualId": "comfy-shorts-visual"
   },
   {
     "color": "#386fa4",
     "description": "A reliable pair for errands.",
-    "hiddenUntilOwned": true,
     "id": "city-jeans",
-    "modifiers": [
-      {
-        "amount": 1.0,
-        "id": "resilience",
-        "source": "attribute"
-      }
-    ],
     "name": "City Jeans",
     "pieces": [
       {
@@ -224,35 +132,14 @@
         "target": "rightShank"
       }
     ],
-    "price": 55.0,
-    "requiredSkillLevels": {
-
-    },
-    "setId": "city-formal",
     "slot": "bottom",
-    "styleRatings": {
-      "casual": 1.0,
-      "edgy": 1.0
-    },
-    "styleTags": [
-      "casual",
-      "edgy"
-    ],
     "visualId": "city-jeans-visual"
   },
   {
     "accentColor": "#ef476f",
     "color": "#ffffff",
     "description": "A small speed boost for busy days.",
-    "hiddenUntilOwned": true,
     "id": "clean-sneakers",
-    "modifiers": [
-      {
-        "amount": 1.0,
-        "id": "agility",
-        "source": "attribute"
-      }
-    ],
     "name": "Clean Sneakers",
     "pieces": [
       {
@@ -272,138 +159,41 @@
         "target": "rightToe"
       }
     ],
-    "price": 45.0,
-    "requiredSkillLevels": {
-
-    },
-    "setId": "starter-comfort",
     "slot": "shoes",
-    "styleRatings": {
-      "casual": 1.0,
-      "sporty": 1.0
-    },
-    "styleTags": [
-      "sporty",
-      "casual"
-    ],
     "visualId": "clean-sneakers-visual"
   },
   {
     "color": "#111111",
     "description": "A studious frame for learning sessions.",
-    "hiddenUntilOwned": true,
     "id": "round-glasses",
-    "modifiers": [
-      {
-        "amount": 1.0,
-        "id": "coding",
-        "source": "skill"
-      },
-      {
-        "amount": 1.0,
-        "id": "tech",
-        "source": "attribute"
-      }
-    ],
     "name": "Round Glasses",
-    "price": 35.0,
-    "requiredSkillLevels": {
-      "coding": 2.0
-    },
-    "setId": "city-formal",
     "slot": "faceAccessory",
-    "styleRatings": {
-      "formal": 1.0,
-      "tech": 2.0
-    },
-    "styleTags": [
-      "tech",
-      "formal"
-    ],
     "visualId": "round-glasses-visual"
   },
   {
     "color": "#ffd166",
     "description": "Bright earrings for a little charm.",
-    "hiddenUntilOwned": true,
     "id": "star-earrings",
-    "modifiers": [
-      {
-        "amount": 1.0,
-        "id": "allure",
-        "source": "attribute"
-      }
-    ],
     "name": "Star Earrings",
-    "price": 70.0,
-    "requiredSkillLevels": {
-      "persuasion": 2.0
-    },
     "slot": "earAccessory",
-    "styleRatings": {
-      "cute": 2.0
-    },
-    "styleTags": [
-      "cute"
-    ],
     "visualId": "star-earrings-visual"
   },
   {
     "accentColor": "#7b61ff",
     "color": "#d8d2ff",
     "description": "Curved horns for a more mythical self.",
-    "hiddenUntilOwned": true,
     "id": "moon-horns",
-    "modifiers": [
-      {
-        "amount": 1.0,
-        "id": "meditation",
-        "source": "skill"
-      }
-    ],
     "name": "Moon Horns",
-    "price": 140.0,
-    "requiredSkillLevels": {
-      "meditation": 2.0
-    },
     "slot": "horns",
-    "styleRatings": {
-      "cute": 1.0,
-      "edgy": 2.0
-    },
-    "styleTags": [
-      "edgy",
-      "cute"
-    ],
     "visualId": "moon-horns-visual"
   },
   {
     "accentColor": "#fff1d6",
     "color": "#d97745",
     "description": "A swishy statement accessory.",
-    "hiddenUntilOwned": true,
     "id": "fox-tail",
-    "modifiers": [
-      {
-        "amount": 1.0,
-        "id": "humor",
-        "source": "skill"
-      }
-    ],
     "name": "Fox Tail",
-    "price": 150.0,
-    "requiredSkillLevels": {
-      "humor": 2.0
-    },
     "slot": "tail",
-    "styleRatings": {
-      "cute": 2.0,
-      "edgy": 1.0
-    },
-    "styleTags": [
-      "cute",
-      "edgy"
-    ],
     "visualId": "fox-tail-visual"
   }
 ]

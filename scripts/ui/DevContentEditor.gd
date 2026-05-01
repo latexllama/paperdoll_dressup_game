@@ -50,6 +50,7 @@ var _asset_import_target_id := ""
 @onready var _preview_status: Label = %PreviewStatus
 @onready var _lattice_canvas: Control = %LatticeCanvas
 @onready var _import_dialog: FileDialog = %SvgImportDialog
+@onready var _discard_dialog: ConfirmationDialog = %DiscardDraftDialog
 
 
 func _ready() -> void:
@@ -65,10 +66,27 @@ func _ready() -> void:
 	_delete_button.pressed.connect(_on_delete_pressed)
 	_lattice_canvas.point_moved.connect(_on_lattice_point_moved)
 	_import_dialog.file_selected.connect(_on_svg_file_selected)
+	_discard_dialog.confirmed.connect(_close_and_discard_draft)
 	_lattice_canvas.visible = false
 
 
 func _on_close_requested() -> void:
+	if _draft.is_dirty():
+		_discard_dialog.popup_centered(Vector2i(460, 180))
+		return
+	hide()
+
+
+func _unhandled_key_input(event: InputEvent) -> void:
+	if visible and event.is_action_pressed("ui_cancel"):
+		_on_close_requested()
+		get_viewport().set_input_as_handled()
+
+
+func _close_and_discard_draft() -> void:
+	if repo != null:
+		_draft.load_from_repository(repo)
+	_update_dirty_label()
 	hide()
 
 
@@ -298,28 +316,6 @@ func _build_wardrobe_form() -> void:
 		_mark_changed("Updated base color.")
 	)
 	_add_optional_color("Accent Color", item, "accentColor")
-	_add_number("Price", float(item.get("price", 0.0)), 0.0, 999999.0, 1.0, func(value: float) -> void:
-		item["price"] = int(value)
-		_mark_changed("Updated price.")
-	)
-	_add_check_box("Hidden Until Owned", bool(item.get("hiddenUntilOwned", false)), func(value: bool) -> void:
-		item["hiddenUntilOwned"] = value
-		_mark_changed("Updated ownership visibility.")
-	)
-	_add_line_edit("Set ID", String(item.get("setId", "")), func(value: String) -> void:
-		_set_optional_string(item, "setId", value)
-		_mark_changed("Updated set id.")
-	)
-	_add_tags_editor("Style Tags", item.get("styleTags", []), func(tags: Array) -> void:
-		if tags.is_empty():
-			item.erase("styleTags")
-		else:
-			item["styleTags"] = tags
-		_mark_changed("Updated style tags.")
-	)
-	_add_number_map_editor("Required Skills", item, "requiredSkillLevels", 0.0, 100.0, 1.0)
-	_add_number_map_editor("Style Ratings", item, "styleRatings", -10.0, 10.0, 1.0)
-	_add_modifiers_editor(item)
 	var visual = Models.record_by_id(_draft.equipment_visuals, String(item.get("visualId", "")))
 	_add_coverage_view(visual)
 	_refresh_wardrobe_preview(item)
@@ -330,8 +326,6 @@ func _build_visual_form() -> void:
 	if visual.is_empty():
 		_add_note("No equipment visual selected.")
 		return
-	if not visual.has("pieces"):
-		visual["pieces"] = []
 	_add_title("Equipment Visual")
 	_add_line_edit("ID", String(visual.get("id", "")), func(value: String) -> void:
 		var old_id = String(visual.get("id", ""))
@@ -351,7 +345,7 @@ func _build_visual_form() -> void:
 		_mark_changed("Updated visual slot.")
 	)
 	_add_title("Visual Pieces")
-	var pieces: Array = visual.get("pieces", [])
+	var pieces: Array = visual.get("pieces", []) if visual.get("pieces", []) is Array else []
 	var piece_labels: Array[String] = []
 	for index in range(pieces.size()):
 		var piece = pieces[index]
@@ -406,8 +400,16 @@ func _build_visual_piece_form(piece: Dictionary) -> void:
 			piece.erase("hideBodyPart")
 		_mark_changed("Updated body-part visibility.")
 	)
-	if not piece.has("transform") or not piece["transform"] is Dictionary:
-		piece["transform"] = {}
+	if not piece.has("transform"):
+		_add_note("No transform is authored for this piece.")
+		_add_button_row().add_child(_button("Add Piece Transform", func() -> void:
+			piece["transform"] = {}
+			_mark_changed("Added visual piece transform.", true, true)
+		))
+		return
+	elif not piece["transform"] is Dictionary:
+		_add_note("Piece transform is invalid and must be fixed before editing.")
+		return
 	_add_transform_editor("Piece Transform", piece["transform"], ["x", "y", "rotate", "scaleX", "scaleY"], {
 		"x": [-600.0, 600.0, 1.0],
 		"y": [-600.0, 600.0, 1.0],
@@ -470,9 +472,8 @@ func _build_asset_variant_form(asset: Dictionary) -> void:
 	for variant in variants.keys():
 		variant_ids.append(String(variant))
 	if variant_ids.is_empty():
-		variant_ids = ["female"]
-		variants["female"] = {"viewBox": {"x": 0.0, "y": 0.0, "width": 2400.0, "height": 3100.0}, "svgMarkup": ""}
-		asset["variants"] = variants
+		_add_note("This asset has no variants.")
+		return
 	if not variant_ids.has(_selected_asset_variant):
 		_selected_asset_variant = variant_ids[0]
 	_add_option("Asset Variant", _selected_asset_variant, variant_ids, func(value: String) -> void:
@@ -481,8 +482,8 @@ func _build_asset_variant_form(asset: Dictionary) -> void:
 	)
 	var data: Dictionary = variants.get(_selected_asset_variant, {})
 	if not data.has("viewBox"):
-		data["viewBox"] = {"x": 0.0, "y": 0.0, "width": 2400.0, "height": 3100.0}
-		variants[_selected_asset_variant] = data
+		_add_note("Selected asset variant is missing a valid viewBox.")
+		return
 	var view_box: Dictionary = data["viewBox"]
 	for key in ["x", "y", "width", "height"]:
 		_add_number("ViewBox %s" % key, float(view_box.get(key, 0.0 if key == "x" or key == "y" else 1.0)), -10000.0, 10000.0, 1.0, func(value: float, next_key: String = key) -> void:
@@ -530,7 +531,8 @@ func _build_body_rig_form() -> void:
 		_mark_changed("Updated layer.")
 	)
 	if not part.has("pivot") or not part["pivot"] is Dictionary:
-		part["pivot"] = {"x": 0.0, "y": 0.0}
+		_add_note("Selected body part is missing a valid pivot.")
+		return
 	var pivot: Dictionary = part["pivot"]
 	_add_number("Pivot X", float(pivot.get("x", 0.0)), -2000.0, 4000.0, 1.0, func(value: float) -> void:
 		pivot["x"] = value
@@ -551,7 +553,8 @@ func _build_body_rig_form() -> void:
 
 func _build_body_svg_variations(part: Dictionary) -> void:
 	if not part.has("variations") or not part["variations"] is Dictionary:
-		part["variations"] = {}
+		_add_note("Selected body part is missing a valid SVG variations map.")
+		return
 	var variations: Dictionary = part["variations"]
 	_add_title("SVG Variations")
 	var ids: Array[String] = [""]
@@ -594,7 +597,8 @@ func _build_body_svg_variations(part: Dictionary) -> void:
 
 func _build_lattice_variations(part: Dictionary) -> void:
 	if not part.has("latticeVariations") or not part["latticeVariations"] is Dictionary:
-		part["latticeVariations"] = {}
+		_add_note("Selected body part is missing a valid lattice variations map.")
+		return
 	var lattice_map: Dictionary = part["latticeVariations"]
 	_add_title("Lattice Variations")
 	var ids: Array[String] = [""]
@@ -646,7 +650,8 @@ func _build_lattice_variations(part: Dictionary) -> void:
 		_mark_changed("Updated lattice columns.", true, true)
 	)
 	if not variation.has("bounds") or not variation["bounds"] is Dictionary:
-		variation["bounds"] = Models.bounds_for_markup(Models.source_markup_for_lattice(part, variation))
+		_add_note("Selected lattice variation is missing valid bounds.")
+		return
 	var bounds: Dictionary = variation["bounds"]
 	for key in ["x", "y", "width", "height"]:
 		_add_number("Bounds %s" % key, float(bounds.get(key, 0.0 if key == "x" or key == "y" else 1.0)), -10000.0, 10000.0, 1.0, func(value: float, next_key: String = key) -> void:
@@ -686,9 +691,11 @@ func _build_pose_form() -> void:
 		_mark_changed("Updated pose name.")
 	)
 	if not pose.has("parts") or not pose["parts"] is Dictionary:
-		pose["parts"] = {}
+		_add_note("Selected pose is missing a valid parts map.")
+		return
 	if not pose.has("sprites") or not pose["sprites"] is Dictionary:
-		pose["sprites"] = {}
+		_add_note("Selected pose is missing a valid sprites map.")
+		return
 	var draft_repo = _draft.repository_clone()
 	var targets = Models.all_rig_targets(draft_repo)
 	if not targets.has(_selected_pose_part):
@@ -699,7 +706,15 @@ func _build_pose_form() -> void:
 	)
 	var parts: Dictionary = pose["parts"]
 	if not parts.has(_selected_pose_part):
-		parts[_selected_pose_part] = {"rotate": 0.0, "x": 0.0, "y": 0.0, "scaleX": 1.0, "scaleY": 1.0, "bend": 0.0}
+		_add_note("No transform is authored for this part.")
+		_add_button_row().add_child(_button("Add Part Transform", func() -> void:
+			parts[_selected_pose_part] = {"rotate": 0.0, "x": 0.0, "y": 0.0, "scaleX": 1.0, "scaleY": 1.0, "bend": 0.0}
+			_mark_changed("Added part transform.", true, true)
+		))
+		_add_title("Sprite Overrides")
+		_build_sprite_override_controls(pose)
+		_refresh_pose_preview(pose)
+		return
 	var transform: Dictionary = parts[_selected_pose_part]
 	_add_transform_editor("Part Transform", transform, ["rotate", "x", "y", "scaleX", "scaleY", "bend"], {
 		"rotate": [-180.0, 180.0, 1.0],
@@ -714,6 +729,11 @@ func _build_pose_form() -> void:
 		_mark_changed("Removed part transform.", true, true)
 	))
 	_add_title("Sprite Overrides")
+	_build_sprite_override_controls(pose)
+	_refresh_pose_preview(pose)
+
+
+func _build_sprite_override_controls(pose: Dictionary) -> void:
 	var sprites: Dictionary = pose["sprites"]
 	_add_option("Left Hand", String(sprites.get("leftHand", "")), Models.HAND_SPRITES, func(value: String) -> void:
 		_set_optional_string(sprites, "leftHand", value)
@@ -739,7 +759,6 @@ func _build_pose_form() -> void:
 				_set_optional_string(sprites, next_id, value)
 				_mark_changed("Updated sprite override.")
 			)
-	_refresh_pose_preview(pose)
 
 
 func _add_transform_editor(title: String, transform: Dictionary, keys: Array, ranges: Dictionary) -> void:
@@ -754,108 +773,6 @@ func _add_transform_editor(title: String, transform: Dictionary, keys: Array, ra
 				transform[next_key] = value
 			_mark_changed("Updated transform.")
 		, true)
-
-
-func _add_number_map_editor(title: String, owner: Dictionary, key: String, min_value: float, max_value: float, step: float) -> void:
-	_add_title(title)
-	if not owner.has(key) or not owner[key] is Dictionary:
-		owner[key] = {}
-	var map: Dictionary = owner[key]
-	for entry_key in map.keys():
-		var row = _add_row()
-		var key_edit := LineEdit.new()
-		key_edit.text = String(entry_key)
-		key_edit.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		row.add_child(key_edit)
-		var spin := SpinBox.new()
-		spin.min_value = min_value
-		spin.max_value = max_value
-		spin.step = step
-		spin.value = float(map[entry_key])
-		spin.custom_minimum_size.x = 120.0
-		row.add_child(spin)
-		row.add_child(_button("Remove", func(next_key: String = String(entry_key)) -> void:
-			map.erase(next_key)
-			if map.is_empty():
-				owner.erase(key)
-			_mark_changed("Removed %s entry." % title, true, true)
-		))
-		key_edit.text_submitted.connect(func(value: String, old_key: String = String(entry_key)) -> void:
-			if value == "" or value == old_key:
-				return
-			var amount = map[old_key]
-			map.erase(old_key)
-			map[value] = amount
-			_mark_changed("Renamed %s entry." % title, true, true)
-		)
-		spin.value_changed.connect(func(value: float, next_key: String = String(entry_key)) -> void:
-			map[next_key] = int(value) if is_equal_approx(value, round(value)) else value
-			_mark_changed("Updated %s entry." % title)
-		)
-	var add_row = _add_row()
-	add_row.add_child(_button("Add %s" % title.trim_suffix("s"), func() -> void:
-		map[Models.unique_id("entry", map)] = int(min_value)
-		_mark_changed("Added %s entry." % title, true, true)
-	))
-
-
-func _add_tags_editor(label: String, tags: Array, on_change: Callable) -> void:
-	var text = ", ".join(tags.map(func(value): return String(value)))
-	_add_line_edit(label, text, func(value: String) -> void:
-		var result: Array = []
-		for raw in value.split(",", false):
-			var tag = raw.strip_edges()
-			if tag != "":
-				result.append(tag)
-		on_change.call(result)
-	)
-
-
-func _add_modifiers_editor(item: Dictionary) -> void:
-	_add_title("Modifiers")
-	if not item.has("modifiers") or not item["modifiers"] is Array:
-		item["modifiers"] = []
-	var modifiers: Array = item["modifiers"]
-	for index in range(modifiers.size()):
-		var modifier: Dictionary = modifiers[index]
-		var row = _add_row()
-		row.add_child(_option_control(String(modifier.get("source", "skill")), ["skill", "style", "relationship"], func(value: String, next_modifier: Dictionary = modifier) -> void:
-			next_modifier["source"] = value
-			_mark_changed("Updated modifier source.")
-		))
-		var id_edit := LineEdit.new()
-		id_edit.text = String(modifier.get("id", ""))
-		id_edit.placeholder_text = "modifier id"
-		id_edit.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		id_edit.text_changed.connect(func(value: String, next_modifier: Dictionary = modifier) -> void:
-			next_modifier["id"] = value
-			_mark_changed("Updated modifier id.")
-		)
-		row.add_child(id_edit)
-		var spin := SpinBox.new()
-		spin.min_value = -100.0
-		spin.max_value = 100.0
-		spin.step = 1.0
-		spin.value = float(modifier.get("amount", 0.0))
-		spin.custom_minimum_size.x = 120.0
-		spin.value_changed.connect(func(value: float, next_modifier: Dictionary = modifier) -> void:
-			next_modifier["amount"] = int(value)
-			_mark_changed("Updated modifier amount.")
-		)
-		row.add_child(spin)
-		row.add_child(_button("Remove", func(next_index: int = index) -> void:
-			if next_index < modifiers.size():
-				modifiers.remove_at(next_index)
-				if modifiers.is_empty():
-					item.erase("modifiers")
-				_mark_changed("Removed modifier.", true, true)
-		))
-	_add_button_row().add_child(_button("Add Modifier", func() -> void:
-		if not item.has("modifiers") or not item["modifiers"] is Array:
-			item["modifiers"] = []
-		item["modifiers"].append({"source": "skill", "id": "coding", "amount": 1})
-		_mark_changed("Added modifier.", true, true)
-	))
 
 
 func _add_coverage_view(visual: Dictionary) -> void:
@@ -1054,7 +971,7 @@ func _selected_record() -> Dictionary:
 
 func _parts_for_selected_variant() -> Array:
 	if not _draft.body_rig.has(_selected_variant):
-		_draft.body_rig[_selected_variant] = {"parts": []}
+		return []
 	return _draft.body_rig[_selected_variant].get("parts", [])
 
 
@@ -1064,8 +981,6 @@ func _body_variant_ids() -> Array[String]:
 		ids.append(String(id))
 	if ids.is_empty():
 		ids = ["female", "male"]
-		_draft.body_rig["female"] = {"parts": []}
-		_draft.body_rig["male"] = {"parts": []}
 	if not ids.has(_selected_variant):
 		_selected_variant = ids[0]
 	return ids

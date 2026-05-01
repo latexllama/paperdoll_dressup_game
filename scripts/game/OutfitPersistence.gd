@@ -13,15 +13,24 @@ static func save_outfit(name: String, outfit: Variant) -> Dictionary:
 	var directory_error = DirAccess.make_dir_recursive_absolute(directory_path)
 	if directory_error != OK:
 		return {"ok": false, "errors": ["Could not create outfit directory."]}
-	var file = FileAccess.open("%s/%s.json" % [OUTFIT_DIR, safe_name], FileAccess.WRITE)
+	var payload: Dictionary = outfit.to_dictionary()
+	var validation = ContentValidator.validate_outfit_data(null, payload)
+	if not validation.get("ok", false):
+		return validation
+	var path = "%s/%s.json" % [OUTFIT_DIR, safe_name]
+	var temp_path = "%s.tmp" % path
+	var file = FileAccess.open(temp_path, FileAccess.WRITE)
 	if file == null:
-		return {"ok": false, "errors": ["Could not open outfit file for writing."]}
-	file.store_string(JSON.stringify(outfit.to_dictionary(), "  ") + "\n")
+		return {"ok": false, "errors": ["Could not open temporary outfit file for writing."]}
+	file.store_string(JSON.stringify(payload, "  ") + "\n")
 	file.close()
+	var replace_result = _replace_file_with_temp(temp_path, path)
+	if not replace_result.get("ok", false):
+		return replace_result
 	return {"ok": true, "errors": [], "name": safe_name}
 
 
-static func load_outfit(name: String) -> Dictionary:
+static func load_outfit(name: String, repo: ContentRepository = null) -> Dictionary:
 	var safe_name = _safe_file_name(name)
 	if safe_name == "":
 		return {"ok": false, "errors": ["Outfit name is required."]}
@@ -29,9 +38,16 @@ static func load_outfit(name: String) -> Dictionary:
 	if not FileAccess.file_exists(path):
 		return {"ok": false, "errors": ["Outfit file was not found."]}
 	var text = FileAccess.get_file_as_string(path)
-	var parsed = JSON.parse_string(text)
-	if not parsed is Dictionary:
+	var parser := JSON.new()
+	var parse_error = parser.parse(text)
+	if parse_error != OK:
+		return {"ok": false, "errors": ["Outfit file is not valid JSON: %s at line %d" % [parser.get_error_message(), parser.get_error_line()]]}
+	var parsed = parser.get_data()
+	if not (parsed is Dictionary):
 		return {"ok": false, "errors": ["Outfit file is not valid JSON."]}
+	var validation = ContentValidator.validate_outfit_data(repo, parsed)
+	if not validation.get("ok", false):
+		return validation
 	return {"ok": true, "errors": [], "outfit": OutfitStateScript.new(parsed)}
 
 
@@ -65,3 +81,27 @@ static func _safe_file_name(name: String) -> String:
 			result += character
 	result = result.replace(" ", "_")
 	return result.substr(0, 64)
+
+
+static func _replace_file_with_temp(temp_path: String, final_path: String) -> Dictionary:
+	var temp_abs = ProjectSettings.globalize_path(temp_path)
+	var final_abs = ProjectSettings.globalize_path(final_path)
+	var backup_abs = "%s.bak" % final_abs
+	if FileAccess.file_exists(backup_abs):
+		var remove_backup_error = DirAccess.remove_absolute(backup_abs)
+		if remove_backup_error != OK:
+			return {"ok": false, "errors": ["Could not remove old outfit backup: %s" % remove_backup_error]}
+	if FileAccess.file_exists(final_path):
+		var backup_error = DirAccess.rename_absolute(final_abs, backup_abs)
+		if backup_error != OK:
+			DirAccess.remove_absolute(temp_abs)
+			return {"ok": false, "errors": ["Could not create outfit backup: %s" % backup_error]}
+	var replace_error = DirAccess.rename_absolute(temp_abs, final_abs)
+	if replace_error != OK:
+		if FileAccess.file_exists(backup_abs):
+			DirAccess.rename_absolute(backup_abs, final_abs)
+		DirAccess.remove_absolute(temp_abs)
+		return {"ok": false, "errors": ["Could not replace outfit file: %s" % replace_error]}
+	if FileAccess.file_exists(backup_abs):
+		DirAccess.remove_absolute(backup_abs)
+	return {"ok": true, "errors": []}

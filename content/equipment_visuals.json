@@ -16,13 +16,19 @@
         "assetId": "shirtLeftUpperArm",
         "colorGroup": "Clothing.Top.Sleeves",
         "layer": "upperLimbs",
-        "target": "leftArm"
+        "target": "leftArm",
+        "transform": {
+
+        }
       },
       {
         "assetId": "shirtRightUpperArm",
         "colorGroup": "Clothing.Top.Sleeves",
         "layer": "upperLimbs",
-        "target": "rightArm"
+        "target": "rightArm",
+        "transform": {
+
+        }
       }
     ],
     "slot": "top"
@@ -35,7 +41,10 @@
         "assetId": "shirtTorso",
         "colorGroup": "Clothing.Top.Base",
         "layer": "body",
-        "target": "torso"
+        "target": "torso",
+        "transform": {
+
+        }
       },
       {
         "assetId": "shirtLeftUpperArm",
@@ -72,7 +81,10 @@
         "assetId": "shirtTorso",
         "colorGroup": "Clothing.Top.Base",
         "layer": "body",
-        "target": "torso"
+        "target": "torso",
+        "transform": {
+
+        }
       },
       {
         "assetId": "shirtCollar",
@@ -121,7 +133,10 @@
         "assetId": "comfyShortsBody",
         "colorGroup": "Clothing.Bottom.Hip",
         "layer": "legs",
-        "target": "torso"
+        "target": "torso",
+        "transform": {
+
+        }
       },
       {
         "assetId": "shortsLeftThigh",
@@ -200,8 +215,7 @@
         "target": "leftFoot",
         "transform": {
           "scaleX": 1.18,
-          "scaleY": 1.18,
-          "y": 76.0
+          "scaleY": 1.18
         }
       },
       {
@@ -211,8 +225,7 @@
         "target": "rightFoot",
         "transform": {
           "scaleX": 1.18,
-          "scaleY": 1.18,
-          "y": 76.0
+          "scaleY": 1.18
         }
       }
     ],

@@ -54,3 +54,10 @@ mouse_filter = 1
 theme_override_constants/h_separation = 14
 theme_override_constants/v_separation = 14
 columns = 5
+
+[node name="EmptyLabel" type="Label" parent="PanelLayout"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "No wardrobe items in this category."
+horizontal_alignment = 1
+autowrap_mode = 3

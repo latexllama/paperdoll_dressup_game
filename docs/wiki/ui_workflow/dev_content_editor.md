@@ -18,7 +18,7 @@ The UI intentionally does not expose JSON records. JSON remains the source stora
 
 The section selector exposes:
 
-- Wardrobe: item identity, slot, visual assignment, colors, economy fields, requirements, modifiers, style metadata, and visual-derived coverage.
+- Wardrobe: item identity, slot, description, visual assignment, colors, and visual-derived coverage.
 - Visuals: equipment visual identity, slot, visual pieces, rig target, draw layer, SVG asset, color group, hide-body flag, and piece transforms.
 - SVG Assets: asset identity, source type, actor-space flag, SVG import, SVG markup editing, safety validation, and preview.
 - Body Rig: variant and part editing, parent and layer dropdowns, pivots, base SVG, SVG variations, and lattice variations.
@@ -30,7 +30,7 @@ Record lists support add, duplicate, and delete. Edits are applied to an in-memo
 
 `res://scripts/ui/DevEditorDraft.gd` deep-copies wardrobe, visuals, SVG assets, body rig, poses, sample metadata, and starting outfit data from `ContentRepository`.
 
-Editor panels read and write only the draft. The dirty indicator compares the current draft signature with the loaded baseline. `Revert Draft` reloads from the repository and discards unsaved edits.
+Editor panels read and write only the draft. The dirty indicator compares the current draft signature with the loaded baseline. `Revert Draft` reloads from the repository and discards unsaved edits. Closing the window with dirty draft data opens a discard confirmation instead of silently hiding the editor.
 
 `Save All` validates the draft repository clone, then writes collections through `ContentRepository.save_collection()` in this order:
 
@@ -44,11 +44,14 @@ Editor panels read and write only the draft. The dirty indicator compares the cu
 
 Saves call `ContentRepository.save_collection()`, which writes to `res://content/*.json` only when `OS.has_feature("editor")` is true. Exported builds receive an unsupported-save error instead of attempting to modify source content.
 
+Each collection write is atomic at the file level. The draft save path validates against the full draft state without pre-mutating the live repository; if a write fails, repository memory is rolled back to the pre-save snapshot.
+
 Before writing, content validation blocks:
 
 - Duplicate ids.
 - Missing equipment assets, visuals, rig targets, or pose parts.
 - Invalid layers, colors, and transforms.
+- Unknown fields or wrong field types in authored records.
 - Unsafe SVG markup such as scripts, embedded images, external references, event handlers, and unsafe protocols.
 
 ## Preview
@@ -57,9 +60,12 @@ Wardrobe items and equipment visuals preview on the doll using a temporary outfi
 
 The body rig lattice variation editor uses `res://scripts/ui/LatticeCanvas.gd`. It draws the selected source SVG, grid lines, and draggable control points; moving a point updates the selected lattice variation in the draft.
 
+Rendering a form should not create missing pose transforms or asset variant defaults. Missing optional authoring structures are surfaced as editor notes and must be created through explicit add/edit controls.
+
 ## Tests
 
 Focused coverage exists in:
 
 - `res://tests/gut/TestDevEditorDraft.gd`
 - `res://tests/gut/TestDevEditorModels.gd`
+- `res://tests/gut/TestDevContentEditorWindow.gd`

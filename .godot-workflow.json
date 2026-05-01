@@ -1,0 +1,10 @@
+{
+  "godot_executable": "G:\\BIN\\Godot_v4.6.1-stable_win64.exe",
+  "preferred_shell": "powershell",
+  "default_project_path": ".",
+  "test_script_patterns": [
+    "res://tests/gut/Test*.gd"
+  ],
+  "build_output_dir": "builds",
+  "allow_editor_launch": false
+}

@@ -60,7 +60,7 @@ func _drop_data(_at_position: Vector2, data: Variant) -> void:
 func _get_drag_data(at_position: Vector2) -> Variant:
 	if outfit == null or outfit.equipped_item_ids.is_empty() or not _point_inside_stage(at_position):
 		return null
-	var item_id = outfit.top_visible_item_id()
+	var item_id = DollSvgBuilder.top_visible_equipped_item_id(repo, outfit)
 	if item_id == "":
 		return null
 	_pending_drag_item_id = item_id

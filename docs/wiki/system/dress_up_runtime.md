@@ -17,13 +17,23 @@ Implemented as the v1 player-facing dress-up loop.
 
 - Wardrobe items are equipped by appending their id to `OutfitState.equipped_item_ids`.
 - No slot exclusivity, overlap validation, or body-part conflict validation is applied at runtime.
-- Draw order follows equip order after body rig rendering.
-- Picking from the doll removes the top equipped item from the stack. The current v1 hit behavior treats the doll stage as the pick area and uses stack order for topmost selection.
+- Draw order follows layer order first, then equip order within each layer.
+- Picking from the doll treats the doll stage as the pick area and removes the top visible equipped item according to rendered layer/equip order.
 - Drag cancellation restores the pre-drag outfit snapshot without recording undo history.
 
 ## Persistence
 
-Outfits are saved to `user://outfits/*.json` through `res://scripts/game/OutfitPersistence.gd`. Saved outfit files store only runtime outfit state, not source content.
+Outfits are saved atomically to `user://outfits/*.json` through `res://scripts/game/OutfitPersistence.gd`. Saved outfit files store only canonical runtime outfit state, not source content.
+
+Loaded outfits are validated against `ContentRepository` before being applied. Missing variants, poses, wardrobe ids, invalid colors, and non-canonical keys are reported as load errors.
+
+`res://scripts/game/OutfitHistory.gd` keeps bounded undo/redo snapshots and skips repeated identical snapshots.
+
+## Content Loading
+
+`ContentRepository.load_all()` reports missing files, invalid JSON, and wrong root types in `load_errors`, then combines those with content validation errors. Content saves use temporary files plus backup/replace behavior so a validation-blocked save does not replace the existing source JSON.
+
+`SvgTextureCache` keeps an LRU-bounded runtime texture cache and should be cleared after source content reloads.
 
 ## Validation
 
@@ -31,8 +41,15 @@ Targeted tests:
 
 - `res://tests/gut/TestOutfitState.gd`
 - `res://tests/gut/TestOutfitPersistence.gd`
+- `res://tests/gut/TestContentRepository.gd`
 - `res://tests/gut/TestContentValidation.gd`
 - `res://tests/gut/TestSvgSafety.gd`
 - `res://tests/gut/TestLattice.gd`
 
-Full validation should also include a headless Godot project load after a Godot executable is configured.
+Full validation can be run with:
+
+```powershell
+tools\RunGut.ps1
+```
+
+The project-local Godot workflow config points to `G:\BIN\Godot_v4.6.1-stable_win64.exe`. Full validation should also include a headless Godot project load.

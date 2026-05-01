@@ -17,13 +17,13 @@ func _init(data: Dictionary = {}) -> void:
 
 func apply_dictionary(data: Dictionary) -> void:
 	variant = String(data.get("variant", "female"))
-	pose_id = String(data.get("poseId", data.get("pose_id", "idle")))
-	skin_tone = String(data.get("skinTone", data.get("skin_tone", "#d28062")))
-	skin_line = String(data.get("skinLine", data.get("skin_line", "#8f4b38")))
-	hair_color = String(data.get("hairColor", data.get("hair_color", "#221a16")))
-	eye_color = String(data.get("eyeColor", data.get("eye_color", "#222222")))
+	pose_id = String(data.get("poseId", "idle"))
+	skin_tone = String(data.get("skinTone", "#d28062"))
+	skin_line = String(data.get("skinLine", "#8f4b38"))
+	hair_color = String(data.get("hairColor", "#221a16"))
+	eye_color = String(data.get("eyeColor", "#222222"))
 	equipped_item_ids = []
-	for item_id in data.get("equippedItemIds", data.get("equipped_item_ids", [])):
+	for item_id in data.get("equippedItemIds", []):
 		equipped_item_ids.append(String(item_id))
 
 

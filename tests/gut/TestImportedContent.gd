@@ -1,6 +1,15 @@
 extends GutTest
 
 const OutfitStateScript := preload("res://scripts/game/OutfitState.gd")
+const OBSOLETE_WARDROBE_KEYS := [
+	"modifiers",
+	"requiredSkillLevels",
+	"setId",
+	"styleTags",
+	"styleRatings",
+	"price",
+	"hiddenUntilOwned",
+]
 
 
 func test_imported_content_loads_and_resolves_references() -> void:
@@ -14,6 +23,16 @@ func test_imported_content_loads_and_resolves_references() -> void:
 	assert_eq(repo.equipment_visuals.size(), 10)
 	assert_eq(repo.equipment_assets.size(), 23)
 	assert_eq(repo.poses.size(), 4)
+
+
+func test_imported_wardrobe_contains_only_dressup_fields() -> void:
+	var repo := ContentRepository.new()
+	var result = repo.load_all()
+	assert_true(result.get("ok", false), "; ".join(result.get("errors", [])))
+
+	for item in repo.wardrobe:
+		for key in OBSOLETE_WARDROBE_KEYS:
+			assert_false(item.has(key), "Wardrobe item %s contains obsolete field %s" % [item.get("id", ""), key])
 
 
 func test_imported_starting_outfit_can_render_svg() -> void:

@@ -6,8 +6,8 @@ const MAX_DIVISIONS := 6
 
 static func create_identity_points(bounds: Dictionary, rows: int, columns: int) -> Array:
 	var points: Array = []
-	var safe_rows = maxi(MIN_DIVISIONS, rows)
-	var safe_columns = maxi(MIN_DIVISIONS, columns)
+	var safe_rows = clampi(rows, MIN_DIVISIONS, MAX_DIVISIONS)
+	var safe_columns = clampi(columns, MIN_DIVISIONS, MAX_DIVISIONS)
 	for row in range(safe_rows):
 		var y = float(bounds.get("y", 0.0)) + (float(bounds.get("height", 1.0)) * row) / maxf(1.0, safe_rows - 1.0)
 		for column in range(safe_columns):
@@ -102,6 +102,8 @@ static func deform_path_data(path_data: String, variation: Dictionary) -> String
 		if upper == "M":
 			var first := true
 			while index < tokens.size() and not _is_path_command(tokens[index]):
+				if not _has_numbers(tokens, index, 2):
+					return path_data
 				var point = _read_point(tokens, index, state, relative)
 				index += 2
 				var warped = deform_lattice_point(point, variation)
@@ -113,12 +115,16 @@ static func deform_path_data(path_data: String, variation: Dictionary) -> String
 				first = false
 		elif upper == "L":
 			while index < tokens.size() and not _is_path_command(tokens[index]):
+				if not _has_numbers(tokens, index, 2):
+					return path_data
 				var point = _read_point(tokens, index, state, relative)
 				index += 2
 				output.append("L%s" % _format_point(deform_lattice_point(point, variation)))
 				_set_current(state, point)
 		elif upper == "H":
 			while index < tokens.size() and not _is_path_command(tokens[index]):
+				if not _has_numbers(tokens, index, 1):
+					return path_data
 				var next_x = float(tokens[index]) + (float(state["x"]) if relative else 0.0)
 				index += 1
 				var point = {"x": next_x, "y": float(state["y"])}
@@ -126,6 +132,8 @@ static func deform_path_data(path_data: String, variation: Dictionary) -> String
 				_set_current(state, point)
 		elif upper == "V":
 			while index < tokens.size() and not _is_path_command(tokens[index]):
+				if not _has_numbers(tokens, index, 1):
+					return path_data
 				var next_y = float(tokens[index]) + (float(state["y"]) if relative else 0.0)
 				index += 1
 				var point = {"x": float(state["x"]), "y": next_y}
@@ -133,6 +141,8 @@ static func deform_path_data(path_data: String, variation: Dictionary) -> String
 				_set_current(state, point)
 		elif upper == "C":
 			while index < tokens.size() and not _is_path_command(tokens[index]):
+				if not _has_numbers(tokens, index, 6):
+					return path_data
 				var c1 = _read_point(tokens, index, state, relative)
 				var c2 = _read_point(tokens, index + 2, state, relative)
 				var end = _read_point(tokens, index + 4, state, relative)
@@ -145,6 +155,8 @@ static func deform_path_data(path_data: String, variation: Dictionary) -> String
 				_set_current(state, end)
 		elif upper == "Q" or upper == "S":
 			while index < tokens.size() and not _is_path_command(tokens[index]):
+				if not _has_numbers(tokens, index, 4):
+					return path_data
 				var c1 = _read_point(tokens, index, state, relative)
 				var end = _read_point(tokens, index + 2, state, relative)
 				index += 4
@@ -156,12 +168,16 @@ static func deform_path_data(path_data: String, variation: Dictionary) -> String
 				_set_current(state, end)
 		elif upper == "T":
 			while index < tokens.size() and not _is_path_command(tokens[index]):
+				if not _has_numbers(tokens, index, 2):
+					return path_data
 				var end = _read_point(tokens, index, state, relative)
 				index += 2
 				output.append("T%s" % _format_point(deform_lattice_point(end, variation)))
 				_set_current(state, end)
 		elif upper == "A":
 			while index < tokens.size() and not _is_path_command(tokens[index]):
+				if not _has_numbers(tokens, index, 7):
+					return path_data
 				index += 5
 				var end = _read_point(tokens, index, state, relative)
 				index += 2
@@ -172,7 +188,7 @@ static func deform_path_data(path_data: String, variation: Dictionary) -> String
 			state["x"] = state["start_x"]
 			state["y"] = state["start_y"]
 		else:
-			break
+			return path_data
 	return " ".join(output)
 
 
@@ -229,6 +245,15 @@ static func _format_number(value: float) -> String:
 
 static func _is_path_command(token: String) -> bool:
 	return token.length() == 1 and "AaCcHhLlMmQqSsTtVvZz".contains(token)
+
+
+static func _has_numbers(tokens: Array[String], index: int, count: int) -> bool:
+	if index + count > tokens.size():
+		return false
+	for offset in range(count):
+		if _is_path_command(tokens[index + offset]):
+			return false
+	return true
 
 
 static func _is_valid_bounds(bounds: Variant) -> bool:

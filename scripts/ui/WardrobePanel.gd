@@ -15,6 +15,7 @@ var _hidden_drag_item_id := ""
 
 @onready var _category_bar: HBoxContainer = %CategoryBar
 @onready var _grid: GridContainer = %ItemGrid
+@onready var _empty_label: Label = %EmptyLabel
 
 
 func configure(next_repo: ContentRepository, next_texture_cache: Variant) -> void:
@@ -62,6 +63,7 @@ func _refresh_items() -> void:
 		return
 	for child in _grid.get_children():
 		child.queue_free()
+	var visible_count := 0
 	for item in _available_items:
 		var item_slot = String(item.get("slot", "misc"))
 		var item_id = String(item.get("id", ""))
@@ -75,6 +77,9 @@ func _refresh_items() -> void:
 		tile.wardrobe_drag_started.connect(_on_tile_drag_started)
 		tile.wardrobe_drag_cancelled.connect(_on_tile_drag_cancelled)
 		tile.equipped_item_returned.connect(_on_equipped_item_returned)
+		visible_count += 1
+	if _empty_label != null:
+		_empty_label.visible = visible_count == 0
 
 
 func _on_category_pressed(slot: String, button: Button) -> void:

@@ -3,6 +3,7 @@ extends RefCounted
 
 var _undo_stack: Array[Dictionary] = []
 var _redo_stack: Array[Dictionary] = []
+var max_size := 64
 
 
 func clear() -> void:
@@ -11,7 +12,11 @@ func clear() -> void:
 
 
 func remember(snapshot: Dictionary) -> void:
+	if not _undo_stack.is_empty() and _snapshot_signature(_undo_stack[_undo_stack.size() - 1]) == _snapshot_signature(snapshot):
+		return
 	_undo_stack.append(snapshot.duplicate(true))
+	while _undo_stack.size() > max_size:
+		_undo_stack.remove_at(0)
 	_redo_stack.clear()
 
 
@@ -35,3 +40,11 @@ func can_undo() -> bool:
 
 func can_redo() -> bool:
 	return not _redo_stack.is_empty()
+
+
+func undo_count() -> int:
+	return _undo_stack.size()
+
+
+func _snapshot_signature(snapshot: Dictionary) -> String:
+	return JSON.stringify(snapshot)

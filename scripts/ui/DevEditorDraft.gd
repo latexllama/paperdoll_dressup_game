@@ -95,11 +95,19 @@ func save_all(repo: ContentRepository) -> Dictionary:
 		return validation
 	if not repo.can_write_source_content():
 		return {"ok": false, "errors": ["Source content can only be saved from the Godot editor runtime."]}
+	var repo_snapshot = {
+		"equipment_assets": repo.equipment_assets.duplicate(true),
+		"equipment_visuals": repo.equipment_visuals.duplicate(true),
+		"wardrobe": repo.wardrobe.duplicate(true),
+		"body_rig": repo.body_rig.duplicate(true),
+		"poses": repo.poses.duplicate(true),
+	}
+	var validation_repo = repository_clone()
 	for collection_name in SAVE_ORDER:
-		repo.set_collection(collection_name, collection(collection_name).duplicate(true))
-	for collection_name in SAVE_ORDER:
-		var result = repo.save_collection(collection_name, collection(collection_name))
+		var result = repo.save_collection(collection_name, collection(collection_name), validation_repo)
 		if not result.get("ok", false):
+			for rollback_name in repo_snapshot.keys():
+				repo.set_collection(rollback_name, repo_snapshot[rollback_name])
 			return result
 	mark_clean()
 	return {"ok": true, "errors": []}

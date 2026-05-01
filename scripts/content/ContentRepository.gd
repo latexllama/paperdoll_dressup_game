@@ -3,6 +3,7 @@ extends RefCounted
 
 const CONTENT_DIR := "res://content"
 
+var content_dir := CONTENT_DIR
 var body_rig: Dictionary = {}
 var equipment_assets: Array = []
 var equipment_visuals: Array = []
@@ -10,6 +11,7 @@ var wardrobe: Array = []
 var poses: Array = []
 var sample_meta: Dictionary = {}
 var starting_outfit: Dictionary = {}
+var last_load_errors: Array[String] = []
 
 var _asset_by_id: Dictionary = {}
 var _visual_by_id: Dictionary = {}
@@ -19,36 +21,51 @@ var _rig_part_by_variant: Dictionary = {}
 
 
 func load_all() -> Dictionary:
-	body_rig = _load_json("body_rig.json", {})
-	equipment_assets = _load_json("equipment_assets.json", [])
-	equipment_visuals = _load_json("equipment_visuals.json", [])
-	wardrobe = _load_json("wardrobe.json", [])
-	poses = _load_json("poses.json", [])
-	sample_meta = _load_json("sample_meta.json", {})
-	starting_outfit = _load_json("starting_outfit.json", {})
+	last_load_errors = []
+	body_rig = _load_json("body_rig.json", {}, TYPE_DICTIONARY)
+	equipment_assets = _load_json("equipment_assets.json", [], TYPE_ARRAY)
+	equipment_visuals = _load_json("equipment_visuals.json", [], TYPE_ARRAY)
+	wardrobe = _load_json("wardrobe.json", [], TYPE_ARRAY)
+	poses = _load_json("poses.json", [], TYPE_ARRAY)
+	sample_meta = _load_json("sample_meta.json", {}, TYPE_DICTIONARY)
+	starting_outfit = _load_json("starting_outfit.json", {}, TYPE_DICTIONARY)
 	_rebuild_indexes()
 	var validation = ContentValidator.validate_repository(self)
-	return validation
+	var errors: Array[String] = []
+	errors.append_array(last_load_errors)
+	errors.append_array(validation.get("errors", []))
+	return {
+		"ok": errors.is_empty(),
+		"errors": errors,
+		"load_errors": last_load_errors.duplicate(),
+		"validation_errors": validation.get("errors", []),
+	}
 
 
 func reload_after_external_save() -> Dictionary:
 	return load_all()
 
 
-func save_collection(collection_name: String, value: Variant) -> Dictionary:
+func save_collection(collection_name: String, value: Variant, validation_repo: ContentRepository = null) -> Dictionary:
 	if not can_write_source_content():
 		return {"ok": false, "errors": ["Source content can only be saved from the Godot editor runtime."]}
 	var file_name = _file_name_for_collection(collection_name)
 	if file_name == "":
 		return {"ok": false, "errors": ["Unknown content collection: %s" % collection_name]}
-	var validation = ContentValidator.validate_collection(self, collection_name, value)
+	var validation_source = validation_repo if validation_repo != null else self
+	var validation = ContentValidator.validate_collection(validation_source, collection_name, value)
 	if not validation.get("ok", false):
 		return validation
-	var file = FileAccess.open("%s/%s" % [CONTENT_DIR, file_name], FileAccess.WRITE)
+	var path = "%s/%s" % [content_dir, file_name]
+	var temp_path = "%s.tmp" % path
+	var file = FileAccess.open(temp_path, FileAccess.WRITE)
 	if file == null:
-		return {"ok": false, "errors": ["Could not open %s for writing." % file_name]}
+		return {"ok": false, "errors": ["Could not open temporary %s for writing." % file_name]}
 	file.store_string(JSON.stringify(value, "  ") + "\n")
 	file.close()
+	var replace_result = _replace_file_with_temp(temp_path, path)
+	if not replace_result.get("ok", false):
+		return replace_result
 	set_collection(collection_name, value)
 	_rebuild_indexes()
 	return {"ok": true, "errors": []}
@@ -89,6 +106,14 @@ func equipment_asset(asset_id: String) -> Dictionary:
 
 func pose(pose_id: String) -> Dictionary:
 	return _pose_by_id.get(pose_id, poses[0] if poses.size() > 0 else {"id": "idle", "parts": {}})
+
+
+func has_pose(pose_id: String) -> bool:
+	return _pose_by_id.has(pose_id)
+
+
+func has_wardrobe_item(item_id: String) -> bool:
+	return _wardrobe_by_id.has(item_id)
 
 
 func body_parts_for_variant(variant: String) -> Array:
@@ -134,17 +159,54 @@ func wardrobe_available_for(equipped_item_ids: Array) -> Array:
 	return available
 
 
-func _load_json(file_name: String, fallback: Variant) -> Variant:
-	var path = "%s/%s" % [CONTENT_DIR, file_name]
+func _load_json(file_name: String, fallback: Variant, expected_type: int) -> Variant:
+	var path = "%s/%s" % [content_dir, file_name]
 	if not FileAccess.file_exists(path):
-		push_warning("Missing content file: %s" % path)
+		last_load_errors.append("Missing content file: %s" % path)
 		return fallback
 	var text = FileAccess.get_file_as_string(path)
-	var parsed = JSON.parse_string(text)
-	if parsed == null:
-		push_warning("Invalid JSON content file: %s" % path)
+	var parser := JSON.new()
+	var parse_error = parser.parse(text)
+	if parse_error != OK:
+		last_load_errors.append("Invalid JSON content file %s: %s at line %d" % [
+			path,
+			parser.get_error_message(),
+			parser.get_error_line(),
+		])
+		return fallback
+	var parsed = parser.get_data()
+	if typeof(parsed) != expected_type:
+		last_load_errors.append("Content file %s has wrong root type. Expected %s, got %s." % [
+			path,
+			type_string(expected_type),
+			type_string(typeof(parsed)),
+		])
 		return fallback
 	return parsed
+
+
+func _replace_file_with_temp(temp_path: String, final_path: String) -> Dictionary:
+	var temp_abs = ProjectSettings.globalize_path(temp_path)
+	var final_abs = ProjectSettings.globalize_path(final_path)
+	var backup_abs = "%s.bak" % final_abs
+	if FileAccess.file_exists(backup_abs):
+		var remove_backup_error = DirAccess.remove_absolute(backup_abs)
+		if remove_backup_error != OK:
+			return {"ok": false, "errors": ["Could not remove old backup for %s: %s" % [final_path, remove_backup_error]]}
+	if FileAccess.file_exists(final_path):
+		var backup_error = DirAccess.rename_absolute(final_abs, backup_abs)
+		if backup_error != OK:
+			DirAccess.remove_absolute(temp_abs)
+			return {"ok": false, "errors": ["Could not create backup for %s: %s" % [final_path, backup_error]]}
+	var replace_error = DirAccess.rename_absolute(temp_abs, final_abs)
+	if replace_error != OK:
+		if FileAccess.file_exists(backup_abs):
+			DirAccess.rename_absolute(backup_abs, final_abs)
+		DirAccess.remove_absolute(temp_abs)
+		return {"ok": false, "errors": ["Could not replace %s: %s" % [final_path, replace_error]]}
+	if FileAccess.file_exists(backup_abs):
+		DirAccess.remove_absolute(backup_abs)
+	return {"ok": true, "errors": []}
 
 
 func _rebuild_indexes() -> void:

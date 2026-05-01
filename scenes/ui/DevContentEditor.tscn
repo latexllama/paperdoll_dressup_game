@@ -147,3 +147,8 @@ title = "Import SVG Asset"
 size = Vector2i(980, 680)
 access = 2
 filters = PackedStringArray("*.svg ; SVG files")
+
+[node name="DiscardDraftDialog" type="ConfirmationDialog" parent="."]
+unique_name_in_owner = true
+title = "Discard Unsaved Changes?"
+dialog_text = "The Dev Content Editor has unsaved draft changes. Close and discard them?"

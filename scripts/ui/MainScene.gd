@@ -81,7 +81,9 @@ func _on_doll_drop_requested(data: Dictionary) -> void:
 		_outfit.equip_item(item_id)
 		_refresh_all()
 	elif kind == "equipped_item":
+		var before = _pending_doll_drag_snapshot.duplicate(true)
 		_outfit.equip_item(item_id)
+		_remember_if_changed(before)
 		_clear_pending_doll_drag()
 		_refresh_all()
 
@@ -104,7 +106,7 @@ func _on_equipped_item_returned(item_id: String) -> void:
 	if item_id == "":
 		return
 	if not _pending_doll_drag_snapshot.is_empty():
-		_history.remember(_pending_doll_drag_snapshot)
+		_remember_if_changed(_pending_doll_drag_snapshot)
 	else:
 		_history.remember(_outfit.to_dictionary())
 		_outfit.remove_last_item(item_id)
@@ -156,12 +158,13 @@ func _on_load_confirmed() -> void:
 		_set_status("No outfit selected.")
 		return
 	var outfit_name = _outfit_list.get_item_text(selected[0])
-	var result = OutfitPersistenceScript.load_outfit(outfit_name)
+	var result = OutfitPersistenceScript.load_outfit(outfit_name, _repo)
 	if not result.get("ok", false):
 		_set_status("Load failed: %s" % "; ".join(result.get("errors", [])))
 		return
-	_history.remember(_outfit.to_dictionary())
+	var before = _outfit.to_dictionary()
 	_outfit = result["outfit"]
+	_remember_if_changed(before)
 	_refresh_all()
 	_set_status("Loaded outfit: %s" % outfit_name)
 
@@ -176,13 +179,14 @@ func _on_settings_pressed() -> void:
 
 
 func _on_settings_confirmed() -> void:
-	_history.remember(_outfit.to_dictionary())
+	var before = _outfit.to_dictionary()
 	_outfit.variant = _variant_option.get_item_text(_variant_option.selected)
 	_outfit.pose_id = _pose_option.get_item_text(_pose_option.selected)
 	_outfit.skin_tone = "#%s" % _skin_picker.color.to_html(false)
 	_outfit.skin_line = DollSvgBuilder._adjust_color(_outfit.skin_tone, -48)
 	_outfit.hair_color = "#%s" % _hair_picker.color.to_html(false)
 	_outfit.eye_color = "#%s" % _eye_picker.color.to_html(false)
+	_remember_if_changed(before)
 	_refresh_all()
 
 
@@ -202,8 +206,9 @@ func _on_dev_content_saved() -> void:
 
 
 func _on_reset_pressed() -> void:
-	_history.remember(_outfit.to_dictionary())
+	var before = _outfit.to_dictionary()
 	_outfit = OutfitStateScript.new(_repo.starting_outfit_snapshot())
+	_remember_if_changed(before)
 	_refresh_all()
 
 
@@ -228,6 +233,13 @@ func _select_option_by_text(option: OptionButton, value: String) -> void:
 func _clear_pending_doll_drag() -> void:
 	_pending_doll_drag_snapshot = {}
 	_pending_doll_drag_item_id = ""
+
+
+func _remember_if_changed(before: Dictionary) -> void:
+	if before.is_empty():
+		return
+	if JSON.stringify(before) != JSON.stringify(_outfit.to_dictionary()):
+		_history.remember(before)
 
 
 func _set_status(message: String) -> void:

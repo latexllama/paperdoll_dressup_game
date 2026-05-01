@@ -2,6 +2,15 @@ extends GutTest
 
 const Models := preload("res://scripts/ui/DevEditorModels.gd")
 const DevEditorDraftScript := preload("res://scripts/ui/DevEditorDraft.gd")
+const OBSOLETE_WARDROBE_KEYS := [
+	"modifiers",
+	"requiredSkillLevels",
+	"setId",
+	"styleTags",
+	"styleRatings",
+	"price",
+	"hiddenUntilOwned",
+]
 
 
 func test_unique_id_and_duplicate_record_keep_ids_distinct() -> void:
@@ -30,6 +39,13 @@ func test_wardrobe_visual_piece_sync_and_asset_rename_updates_references() -> vo
 	assert_eq(item["pieces"], [{"target": "torso", "colorGroup": "Clothing.Top.Base"}])
 	assert_eq(visual["pieces"][0]["assetId"], "newAsset")
 	assert_eq(visual["pieces"][1]["assetId"], "newAsset")
+
+
+func test_new_wardrobe_item_omits_obsolete_rpg_fields() -> void:
+	var item = Models.create_wardrobe_item([])
+
+	for key in OBSOLETE_WARDROBE_KEYS:
+		assert_false(item.has(key), "New wardrobe item contains obsolete field %s" % key)
 
 
 func test_visual_rename_updates_wardrobe_references() -> void:
@@ -94,10 +110,10 @@ func test_pose_edit_validation_accepts_valid_part_and_rejects_invalid_part() -> 
 		"latticeVariations": {},
 	}
 	repo.body_rig = {"female": {"parts": [body_part]}, "male": {"parts": [body_part.duplicate(true)]}}
-	repo.equipment_assets = [{"id": "asset", "svgMarkup": "<g><path d=\"M0 0 L4 4\"/></g>"}]
-	repo.equipment_visuals = [{"id": "visual", "pieces": [{"target": "body", "layer": "body", "assetId": "asset"}]}]
-	repo.wardrobe = [{"id": "item", "visualId": "visual", "color": "#ffffff"}]
-	repo.poses = [{"id": "pose", "parts": {"body": {"rotate": 8.0, "x": 2.0}}, "sprites": {}}]
+	repo.equipment_assets = [{"id": "asset", "name": "Asset", "source": "custom", "actorSpace": false, "svgMarkup": "<g><path d=\"M0 0 L4 4\"/></g>"}]
+	repo.equipment_visuals = [{"id": "visual", "name": "Visual", "slot": "top", "pieces": [{"target": "body", "layer": "body", "assetId": "asset"}]}]
+	repo.wardrobe = [{"id": "item", "name": "Item", "slot": "top", "visualId": "visual", "color": "#ffffff"}]
+	repo.poses = [{"id": "idle", "name": "Idle", "parts": {"body": {"rotate": 8.0, "x": 2.0}}, "sprites": {}}]
 	repo.set_collection("equipment_assets", repo.equipment_assets)
 
 	var valid = ContentValidator.validate_repository(repo)

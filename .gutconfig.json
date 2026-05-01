@@ -1,0 +1,16 @@
+{
+  "dirs": [
+    "res://tests/gut"
+  ],
+  "include_subdirs": false,
+  "disable_colors": true,
+  "prefix": "Test",
+  "suffix": ".gd",
+  "should_exit": true,
+  "should_exit_on_success": true,
+  "failure_error_types": [
+    "engine",
+    "gut",
+    "push_error"
+  ]
+}

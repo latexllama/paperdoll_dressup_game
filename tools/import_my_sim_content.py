@@ -15,6 +15,66 @@ from typing import Any
 
 
 CONTENT_TYPES = ("wardrobe", "equipmentVisuals", "equipmentAssets", "poses", "startingState")
+WARDROBE_ITEM_KEYS = (
+    "id",
+    "name",
+    "slot",
+    "description",
+    "visualId",
+    "color",
+    "accentColor",
+    "pieces",
+)
+HAIR_COLOR_FILLS = {
+    "#183f7b": "var(--doll-hair-shadow)",
+    "#1f4a8c": "var(--doll-hair)",
+    "#30518a": "var(--doll-hair-shadow)",
+    "#3861a6": "var(--doll-hair)",
+    "#49454e": "var(--doll-hair)",
+    "#9a633f": "var(--doll-hair-shadow)",
+    "#b6754a": "var(--doll-hair)",
+    "#d08a5b": "var(--doll-hair-shadow)",
+    "#e09a6b": "var(--doll-hair)",
+}
+IRIS_COLOR_FILLS = {
+    "#3a5bd7": "var(--doll-eye)",
+    "#828180": "var(--doll-eye)",
+}
+BASE_RIG_TARGETS = {
+    "body",
+    "hip",
+    "torso",
+    "neck",
+    "head",
+    "headNub",
+    "leftArm",
+    "leftForearm",
+    "leftHand",
+    "rightArm",
+    "rightForearm",
+    "rightHand",
+    "leftThigh",
+    "leftShank",
+    "leftFoot",
+    "leftToe",
+    "rightThigh",
+    "rightShank",
+    "rightFoot",
+    "rightToe",
+    "backHair",
+    "frontHair",
+    "face",
+    "leftEye",
+    "rightEye",
+    "leftBrow",
+    "rightBrow",
+    "mouth",
+    "nose",
+    "leftEar",
+    "rightEar",
+    "horns",
+    "tail",
+}
 
 
 def read_text(path: Path) -> str:
@@ -107,6 +167,84 @@ def source_content_path(source_root: Path, name: str) -> Path:
     return source_root / "src" / "game" / "content" / "data" / f"{name}.json"
 
 
+def wardrobe_to_dressup_records(payload: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    return [
+        {key: item[key] for key in WARDROBE_ITEM_KEYS if key in item}
+        for item in payload
+    ]
+
+
+def replace_known_fills(markup: str, fill_map: dict[str, str]) -> str:
+    result = markup
+    for fill, token in fill_map.items():
+        result = result.replace(f'fill="{fill}"', f'fill="{token}"')
+        result = result.replace(f'fill="{fill.upper()}"', f'fill="{token}"')
+    return result
+
+
+def tokenize_body_rig_colors(body_rig: dict[str, Any]) -> None:
+    for variant_data in body_rig.values():
+        for part in variant_data.get("parts", []):
+            part_id = part.get("id", "")
+            if part_id in {"backHair", "frontHair", "leftBrow", "rightBrow"}:
+                fill_map = HAIR_COLOR_FILLS
+            elif part_id in {"leftEye", "rightEye"}:
+                fill_map = IRIS_COLOR_FILLS
+            else:
+                continue
+            part["svgMarkup"] = replace_known_fills(part.get("svgMarkup", ""), fill_map)
+            for variation_id, markup in list(part.get("variations", {}).items()):
+                part["variations"][variation_id] = replace_known_fills(markup, fill_map)
+
+
+def validate_outputs(outputs: dict[str, Any]) -> list[str]:
+    errors: list[str] = []
+    wardrobe = outputs["wardrobe.json"]
+    visuals = outputs["equipment_visuals.json"]
+    assets = outputs["equipment_assets.json"]
+    poses = outputs["poses.json"]
+    body_rig = outputs["body_rig.json"]
+    asset_ids = {asset.get("id") for asset in assets}
+    visual_ids = {visual.get("id") for visual in visuals}
+    wardrobe_ids = {item.get("id") for item in wardrobe}
+    pose_ids = {pose.get("id") for pose in poses}
+    rig_targets = set(BASE_RIG_TARGETS) | {
+        part.get("id")
+        for variant_data in body_rig.values()
+        for part in variant_data.get("parts", [])
+    }
+
+    for collection_name, records in {
+        "wardrobe": wardrobe,
+        "equipment_visuals": visuals,
+        "equipment_assets": assets,
+        "poses": poses,
+    }.items():
+        ids = [record.get("id") for record in records]
+        if len(ids) != len(set(ids)):
+            errors.append(f"{collection_name} contains duplicate ids")
+
+    for item in wardrobe:
+        unknown = sorted(set(item.keys()) - set(WARDROBE_ITEM_KEYS))
+        if unknown:
+            errors.append(f"wardrobe item {item.get('id')} has unknown fields: {', '.join(unknown)}")
+        if item.get("visualId") not in visual_ids:
+            errors.append(f"wardrobe item {item.get('id')} references missing visual {item.get('visualId')}")
+    for visual in visuals:
+        for index, piece in enumerate(visual.get("pieces", [])):
+            if piece.get("assetId") not in asset_ids:
+                errors.append(f"visual {visual.get('id')} piece {index} references missing asset {piece.get('assetId')}")
+            if piece.get("target") not in rig_targets:
+                errors.append(f"visual {visual.get('id')} piece {index} references missing rig target {piece.get('target')}")
+    starting = outputs["starting_outfit.json"]
+    if starting.get("poseId") not in pose_ids:
+        errors.append(f"starting outfit references missing pose {starting.get('poseId')}")
+    for item_id in starting.get("equippedItemIds", []):
+        if item_id not in wardrobe_ids:
+            errors.append(f"starting outfit references missing wardrobe item {item_id}")
+    return errors
+
+
 def import_content(source_root: Path, project_root: Path, dry_run: bool = False) -> dict[str, Any]:
     if not (source_root / "package.json").exists():
         raise FileNotFoundError(f"Source project not found: {source_root}")
@@ -122,6 +260,7 @@ def import_content(source_root: Path, project_root: Path, dry_run: bool = False)
         "export const ctaBodyRigAssets = ",
         "\n\nexport type CtaSampleVariant",
     )
+    tokenize_body_rig_colors(body_rig)
     cta_sample_assets = extract_json_const(
         cta_sample_source,
         "export const ctaSampleAssets = ",
@@ -169,7 +308,9 @@ def import_content(source_root: Path, project_root: Path, dry_run: bool = False)
         "body_rig.json": body_rig,
         "equipment_assets.json": equipment_assets,
         "equipment_visuals.json": json.loads(read_text(source_content_path(source_root, "equipmentVisuals"))),
-        "wardrobe.json": json.loads(read_text(source_content_path(source_root, "wardrobe"))),
+        "wardrobe.json": wardrobe_to_dressup_records(
+            json.loads(read_text(source_content_path(source_root, "wardrobe")))
+        ),
         "poses.json": json.loads(read_text(source_content_path(source_root, "poses"))),
         "sample_meta.json": sample_meta,
         "starting_outfit.json": starting_outfit,
@@ -186,6 +327,10 @@ def import_content(source_root: Path, project_root: Path, dry_run: bool = False)
         "equipmentVisuals": len(outputs["equipment_visuals.json"]),
         "poses": len(outputs["poses.json"]),
     }
+    validation_errors = validate_outputs(outputs)
+    manifest["validationErrors"] = validation_errors
+    if validation_errors:
+        raise ValueError("Generated content is invalid:\n- " + "\n- ".join(validation_errors))
     outputs["import_manifest.json"] = manifest
 
     if not dry_run:

@@ -37,10 +37,7 @@ static func create_wardrobe_item(existing: Array) -> Dictionary:
 		"description": "",
 		"visualId": "%s-visual" % id,
 		"color": "#ffffff",
-		"price": 0,
-		"hiddenUntilOwned": false,
 		"pieces": [],
-		"requiredSkillLevels": {},
 	}
 
 

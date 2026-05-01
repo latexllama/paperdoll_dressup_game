@@ -11,8 +11,9 @@ class FakeRepository:
 	func can_write_source_content() -> bool:
 		return true
 
-	func save_collection(collection_name: String, value: Variant) -> Dictionary:
-		var validation = ContentValidator.validate_collection(self, collection_name, value)
+	func save_collection(collection_name: String, value: Variant, validation_repo: ContentRepository = null) -> Dictionary:
+		var validation_source = validation_repo if validation_repo != null else self
+		var validation = ContentValidator.validate_collection(validation_source, collection_name, value)
 		if not validation.get("ok", false):
 			return validation
 		saved_order.append(collection_name)
@@ -96,7 +97,7 @@ func _valid_repo() -> FakeRepository:
 		"male": {"parts": [body_part.duplicate(true)]},
 	}
 	repo.equipment_assets = [
-		{"id": "asset", "name": "Asset", "source": "custom", "svgMarkup": "<g><path d=\"M0 0 L4 4\"/></g>"},
+		{"id": "asset", "name": "Asset", "source": "custom", "actorSpace": false, "svgMarkup": "<g><path d=\"M0 0 L4 4\"/></g>"},
 	]
 	repo.equipment_visuals = [
 		{

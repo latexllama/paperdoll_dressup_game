@@ -43,3 +43,7 @@ py -3 tools\import_my_sim_content.py
 ```
 
 After import, run content validation through the GUT suite and run a headless Godot load when an engine executable is available.
+
+Dry-run and write modes validate generated references before source files are written. The import blocks duplicate ids, missing visual/asset/rig references, missing starting outfit references, and obsolete wardrobe fields.
+
+Imported body-rig hair, brow, and iris SVG fills are normalized to semantic color tokens where known so runtime appearance settings can recolor them. `DollSvgBuilder` still keeps a fallback fixed-fill map for older or manually authored SVG that has not been reimported.

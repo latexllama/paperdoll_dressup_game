@@ -39,9 +39,9 @@
       }
     },
     "sprites": {
-      "leftFoot": "front",
+      "leftFoot": "outward",
       "leftHand": "relaxed",
-      "rightFoot": "front",
+      "rightFoot": "outward",
       "rightHand": "relaxed"
     }
   },

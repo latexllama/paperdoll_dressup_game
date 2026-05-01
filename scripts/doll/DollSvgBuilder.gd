@@ -5,6 +5,21 @@ const ACTOR_WIDTH := 2400.0
 const ACTOR_HEIGHT := 3100.0
 const CENTER_X := 1200.0
 const LAYER_ORDER := ["back", "upperLimbs", "body", "legs", "head", "frontLimbs", "front"]
+const HAIR_COLOR_FILLS := {
+	"#183f7b": "var(--doll-hair-shadow)",
+	"#1f4a8c": "var(--doll-hair)",
+	"#30518a": "var(--doll-hair-shadow)",
+	"#3861a6": "var(--doll-hair)",
+	"#49454e": "var(--doll-hair)",
+	"#9a633f": "var(--doll-hair-shadow)",
+	"#b6754a": "var(--doll-hair)",
+	"#d08a5b": "var(--doll-hair-shadow)",
+	"#e09a6b": "var(--doll-hair)",
+}
+const IRIS_COLOR_FILLS := {
+	"#3a5bd7": "var(--doll-eye)",
+	"#828180": "var(--doll-eye)",
+}
 
 const BASE_PIVOTS := {
 	"body": {"x": 1200.0, "y": 1620.0},
@@ -112,9 +127,29 @@ static func build_item_icon_svg(repo: ContentRepository, item: Dictionary) -> St
 	])
 
 
+static func top_visible_equipped_item_id(repo: ContentRepository, outfit: Variant) -> String:
+	var top_item_id := ""
+	for layer in LAYER_ORDER:
+		for item_id in outfit.equipped_item_ids:
+			var item = repo.wardrobe_item(String(item_id))
+			if item.is_empty():
+				continue
+			var visual = repo.equipment_visual(String(item.get("visualId", "")))
+			if visual.is_empty():
+				continue
+			for piece in visual.get("pieces", []):
+				if String(piece.get("layer", "front")) != layer:
+					continue
+				if repo.equipment_asset(String(piece.get("assetId", ""))).is_empty():
+					continue
+				top_item_id = String(item_id)
+	return top_item_id
+
+
 static func _body_part_svg(repo: ContentRepository, outfit: Variant, pose: Dictionary, part: Dictionary, tokens: Dictionary) -> String:
 	var part_id = String(part.get("id", ""))
 	var markup = _resolve_body_part_markup(part, pose)
+	markup = _normalize_body_part_color_tokens(markup, part_id)
 	markup = _materialize_tokens(markup, tokens)
 	var chain = _transform_chain_for_target(repo, outfit.variant, part_id)
 	var transform = _transform_chain(repo, outfit.variant, pose, chain)
@@ -183,6 +218,7 @@ static func _doll_tokens(outfit: Variant) -> Dictionary:
 		"--doll-skin-shadow": _adjust_color(outfit.skin_tone, -34),
 		"--doll-skin-contour": outfit.skin_line,
 		"--doll-hair": outfit.hair_color,
+		"--doll-hair-shadow": _adjust_color(outfit.hair_color, -34),
 		"--doll-eye": outfit.eye_color,
 	}
 
@@ -208,6 +244,23 @@ static func _materialize_tokens(markup: String, tokens: Dictionary) -> String:
 	var result = markup
 	for key in tokens.keys():
 		result = result.replace("var(%s)" % key, String(tokens[key]))
+	return result
+
+
+static func _normalize_body_part_color_tokens(markup: String, part_id: String) -> String:
+	match part_id:
+		"backHair", "frontHair", "leftBrow", "rightBrow":
+			return _replace_known_fills(markup, HAIR_COLOR_FILLS)
+		"leftEye", "rightEye":
+			return _replace_known_fills(markup, IRIS_COLOR_FILLS)
+	return markup
+
+
+static func _replace_known_fills(markup: String, fill_map: Dictionary) -> String:
+	var result = markup
+	for hex in fill_map.keys():
+		result = result.replace("fill=\"%s\"" % hex, "fill=\"%s\"" % String(fill_map[hex]))
+		result = result.replace("fill=\"%s\"" % String(hex).to_upper(), "fill=\"%s\"" % String(fill_map[hex]))
 	return result
 
 
