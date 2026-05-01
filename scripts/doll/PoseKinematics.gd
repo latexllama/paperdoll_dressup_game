@@ -16,8 +16,8 @@ const ARM_CHAINS := {
 const LIMB_CHAINS := {
 	"leftArm": {"upper": "leftArm", "middle": "leftForearm", "end": "leftHand", "side": "left"},
 	"rightArm": {"upper": "rightArm", "middle": "rightForearm", "end": "rightHand", "side": "right"},
-	"leftLeg": {"upper": "leftThigh", "middle": "leftShank", "end": "leftFoot", "side": "left"},
-	"rightLeg": {"upper": "rightThigh", "middle": "rightShank", "end": "rightFoot", "side": "right"},
+	"leftLeg": {"upper": "leftThigh", "middle": "leftShank", "end": "leftFoot", "side": "left", "invert_bend": true, "use_rest_bend": true},
+	"rightLeg": {"upper": "rightThigh", "middle": "rightShank", "end": "rightFoot", "side": "right", "invert_bend": true, "use_rest_bend": true},
 }
 
 
@@ -94,7 +94,12 @@ static func solve_limb_ik(repo: ContentRepository, variant: String, pose: Dictio
 	var base_angle = (clamped_target - shoulder).angle()
 	var shoulder_cos = clampf((upper_length * upper_length + distance * distance - lower_length * lower_length) / (2.0 * upper_length * distance), -1.0, 1.0)
 	var shoulder_offset = acos(shoulder_cos)
-	var bend_sign = _preferred_bend_sign(shoulder, clamped_target, pivot_position(repo, variant, pose, middle_id), String(chain["side"]))
+	var bend_reference = pivot_position(repo, variant, pose, middle_id)
+	if bool(chain.get("use_rest_bend", false)):
+		bend_reference = shoulder + (elbow_rest - shoulder_rest)
+	var bend_sign = _preferred_bend_sign(shoulder, clamped_target, bend_reference, String(chain["side"]))
+	if bool(chain.get("invert_bend", false)):
+		bend_sign *= -1.0
 	var upper_abs = base_angle + shoulder_offset * bend_sign
 	var elbow = shoulder + Vector2.from_angle(upper_abs) * upper_length
 	var lower_abs = (clamped_target - elbow).angle()

@@ -72,6 +72,24 @@ func test_leg_ik_updates_thigh_and_shank() -> void:
 	assert_true(result["updates"].has("leftShank"))
 
 
+func test_leg_ik_uses_inverted_stable_knee_bend() -> void:
+	var pose := {"parts": {}, "sprites": {}}
+	var hip = PoseKinematicsScript.pivot_for(repo, "female", "rightThigh")
+	var target = hip + Vector2(540.0, 390.0)
+	var rest_knee = PoseKinematicsScript.pivot_for(repo, "female", "rightShank")
+	var rest_side = signf((target - hip).cross(rest_knee - hip))
+	var result = PoseKinematicsScript.solve_limb_ik(repo, "female", pose, "rightLeg", target)
+	assert_true(result.get("ok", false), "; ".join(result.get("errors", [])))
+	var solved_side = signf((result["target"] - hip).cross(result["elbow"] - hip))
+	assert_eq(solved_side, -rest_side)
+
+	pose["parts"] = result["updates"].duplicate(true)
+	var second_result = PoseKinematicsScript.solve_limb_ik(repo, "female", pose, "rightLeg", target)
+	assert_true(second_result.get("ok", false), "; ".join(second_result.get("errors", [])))
+	var second_side = signf((second_result["target"] - hip).cross(second_result["elbow"] - hip))
+	assert_eq(second_side, solved_side)
+
+
 func test_pose_bend_emits_visible_svg_transform() -> void:
 	var pose = {"id": "bend-test", "name": "Bend Test", "parts": {"leftArm": {"bend": 12.0}}, "sprites": {}}
 	repo.poses.append(pose)
