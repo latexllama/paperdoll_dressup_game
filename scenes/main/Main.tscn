@@ -152,6 +152,12 @@ unique_name_in_owner = true
 layout_mode = 2
 text = "default"
 
+[node name="OverwriteSaveDialog" type="ConfirmationDialog" parent="."]
+unique_name_in_owner = true
+title = "Overwrite Outfit?"
+dialog_text = "An outfit with this name already exists. Overwrite it?"
+visible = false
+
 [node name="LoadDialog" type="AcceptDialog" parent="."]
 unique_name_in_owner = true
 title = "Load Outfit"
@@ -161,6 +167,13 @@ visible = false
 unique_name_in_owner = true
 offset_right = 400.0
 offset_bottom = 280.0
+
+[node name="DeleteOutfitButton" type="Button" parent="LoadDialog"]
+unique_name_in_owner = true
+offset_top = 286.0
+offset_right = 140.0
+offset_bottom = 318.0
+text = "Delete Outfit"
 
 [node name="SettingsDialog" type="AcceptDialog" parent="."]
 unique_name_in_owner = true
@@ -218,6 +231,11 @@ text = "Eyes"
 [node name="EyePicker" type="ColorPickerButton" parent="SettingsDialog/SettingsMargin/SettingsGrid"]
 unique_name_in_owner = true
 layout_mode = 2
+
+[node name="ResetAppearanceButton" type="Button" parent="SettingsDialog/SettingsMargin/SettingsGrid"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Reset Appearance"
 
 [node name="DevContentEditor" parent="." instance=ExtResource("4_editor")]
 unique_name_in_owner = true

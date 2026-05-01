@@ -40,6 +40,7 @@ var _pose_show_pivots := true
 var _pose_show_guides := true
 var _pose_show_rest_ghost := true
 var _pose_position_snap := 1.0
+var _body_rig_label_mode := "selected_hover"
 var _syncing_body_rig_zoom := false
 var _creation_id_edit := {}
 var _duplicate_confirm_callback := Callable()
@@ -87,6 +88,7 @@ func _ready() -> void:
 	_duplicate_button.pressed.connect(_on_duplicate_pressed)
 	_delete_button.pressed.connect(_on_delete_pressed)
 	_lattice_canvas.point_moved.connect(_on_lattice_point_moved)
+	_lattice_canvas.status_changed.connect(_set_status)
 	_body_rig_canvas.part_selected.connect(_on_body_rig_canvas_part_selected)
 	_body_rig_canvas.zoom_changed.connect(_on_body_rig_canvas_zoom_changed)
 	_body_rig_canvas.status_changed.connect(_set_status)
@@ -589,6 +591,11 @@ func _build_body_rig_form() -> void:
 	)
 	var part = _selected_record()
 	_add_body_rig_export_buttons(part, not _parts_for_selected_variant().is_empty())
+	_add_body_rig_repair_notice()
+	_add_option("Pivot Labels", _body_rig_label_mode, ["selected_hover", "all", "none"], func(value: String) -> void:
+		_body_rig_label_mode = value
+		_refresh_body_preview()
+	)
 	if part.is_empty():
 		_add_note("No body part selected.")
 		return
@@ -644,6 +651,19 @@ func _add_body_rig_export_buttons(part: Dictionary, has_variant_parts: bool) -> 
 	)
 	export_all_button.disabled = not has_variant_parts
 	row.add_child(export_all_button)
+
+
+func _add_body_rig_repair_notice() -> void:
+	if repo == null or repo.generated_body_part_repairs.is_empty():
+		return
+	var count := repo.generated_body_part_repairs.size()
+	_add_note("ContentRepository generated %d required body-rig part(s) from defaults. Review the generated parts, then use this action and Save All to persist them." % count)
+	var row := _add_button_row()
+	row.add_child(_button("Repair/Save Generated Parts", func() -> void:
+		_draft.force_dirty()
+		_update_dirty_label()
+		_set_status("Generated body-rig repair defaults are ready to save with Save All.")
+	))
 
 
 func _build_body_svg_variations(part: Dictionary) -> void:
@@ -761,6 +781,13 @@ func _build_lattice_variations(part: Dictionary) -> void:
 		selected_lattice["bounds"] = Models.bounds_for_markup(Models.source_markup_for_lattice(part, selected_lattice))
 		Models.reset_lattice_points(selected_lattice)
 		_mark_changed("Fit lattice bounds.", true, true)
+	))
+	tool_row.add_child(_button("Reset Lattice View", func() -> void:
+		_lattice_canvas.reset_view()
+		_set_status("Reset lattice view.")
+	))
+	tool_row.add_child(_button("Frame Lattice", func() -> void:
+		_lattice_canvas.frame_lattice()
 	))
 	_lattice_canvas.visible = true
 	_lattice_canvas.configure(selected_lattice, Models.source_markup_for_lattice(part, selected_lattice), texture_cache)
@@ -999,7 +1026,10 @@ func _refresh_body_preview() -> void:
 	outfit.equipped_item_ids.clear()
 	var zero_pose := {"id": "__body_rig_zero__", "parts": {}, "sprites": {}}
 	var texture = texture_cache.texture_from_svg(DollSvgBuilder.build_svg(draft_repo, outfit, {"poseOverride": zero_pose}), 0.18)
-	_body_rig_canvas.configure(draft_repo, _selected_variant, _selected_id, texture, {"pose": zero_pose})
+	_body_rig_canvas.configure(draft_repo, _selected_variant, _selected_id, texture, {
+		"pose": zero_pose,
+		"label_mode": _body_rig_label_mode,
+	})
 	_sync_body_rig_zoom_slider(_body_rig_canvas.zoom)
 	_frame_body_part_button.disabled = _selected_id == ""
 	_preview_status.text = "Body rig preview: click body parts to select; middle-drag pans and wheel zooms."

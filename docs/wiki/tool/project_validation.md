@@ -37,10 +37,16 @@ Run a project load check with:
 Run:
 
 ```powershell
-py -3 C:\Users\cfing\plugins\godot-engine-workflow\scripts\godot_resource_audit.py --project .
+tools\RunResourceAudit.ps1
 ```
 
 The current audit reports known third-party GUT addon `res://` false positives. Treat new non-`addons/gut` issues as project defects.
+
+Project resources should use one UID declaration path per resource. A `.tscn` with an inline `uid="..."` should not also have a same-path `.tscn.uid` companion, because Godot reports that as a duplicate declared UID.
+
+## Renderer
+
+The project is desktop-first, but `project.godot` intentionally uses the Godot mobile renderer for the current 2D SVG-texture workload. Keep this unless a renderer-specific defect appears in validation; the window stretch mode preserves a 16:9 viewport with `window/stretch/aspect="keep"`.
 
 ## Export Presets
 

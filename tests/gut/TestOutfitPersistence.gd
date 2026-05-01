@@ -4,6 +4,7 @@ const OutfitStateScript := preload("res://scripts/game/OutfitState.gd")
 const OutfitPersistenceScript := preload("res://scripts/game/OutfitPersistence.gd")
 const TEST_OUTFIT_NAME := "gut_test_outfit"
 const INVALID_OUTFIT_NAME := "gut_invalid_outfit"
+const DELETE_OUTFIT_NAME := "gut_delete_outfit"
 
 
 func after_all() -> void:
@@ -13,6 +14,9 @@ func after_all() -> void:
 	var invalid_path = ProjectSettings.globalize_path("user://outfits/%s.json" % INVALID_OUTFIT_NAME)
 	if FileAccess.file_exists("user://outfits/%s.json" % INVALID_OUTFIT_NAME):
 		DirAccess.remove_absolute(invalid_path)
+	var delete_path = ProjectSettings.globalize_path("user://outfits/%s.json" % DELETE_OUTFIT_NAME)
+	if FileAccess.file_exists("user://outfits/%s.json" % DELETE_OUTFIT_NAME):
+		DirAccess.remove_absolute(delete_path)
 
 
 func test_outfit_save_and_load_round_trip() -> void:
@@ -56,3 +60,17 @@ func test_outfit_load_rejects_missing_repository_references() -> void:
 	assert_false(result.get("ok", true))
 	assert_string_contains("; ".join(result.get("errors", [])), "missing pose")
 	assert_string_contains("; ".join(result.get("errors", [])), "missing wardrobe item")
+
+
+func test_outfit_delete_removes_saved_file_and_list_entry() -> void:
+	var outfit = OutfitStateScript.new()
+	var save_result = OutfitPersistenceScript.save_outfit(DELETE_OUTFIT_NAME, outfit)
+	assert_true(save_result.get("ok", false), "; ".join(save_result.get("errors", [])))
+	assert_true(OutfitPersistenceScript.outfit_exists(DELETE_OUTFIT_NAME))
+	assert_true(OutfitPersistenceScript.list_outfits().has(DELETE_OUTFIT_NAME))
+
+	var delete_result = OutfitPersistenceScript.delete_outfit(DELETE_OUTFIT_NAME)
+
+	assert_true(delete_result.get("ok", false), "; ".join(delete_result.get("errors", [])))
+	assert_false(OutfitPersistenceScript.outfit_exists(DELETE_OUTFIT_NAME))
+	assert_false(OutfitPersistenceScript.list_outfits().has(DELETE_OUTFIT_NAME))

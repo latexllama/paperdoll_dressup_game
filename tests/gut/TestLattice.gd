@@ -52,3 +52,30 @@ func test_lattice_clamps_identity_divisions_and_keeps_malformed_path_unchanged()
 	}
 	var malformed := "M0 0 L10"
 	assert_eq(Lattice.deform_path_data(malformed, variation), malformed)
+
+
+func test_lattice_canvas_zoom_and_frame_preserve_usable_view() -> void:
+	var canvas := LatticeCanvas.new()
+	add_child_autoqfree(canvas)
+	canvas.size = Vector2(320.0, 240.0)
+	var bounds = {"x": 0.0, "y": 0.0, "width": 100.0, "height": 50.0}
+	var variation = {
+		"rows": 2,
+		"columns": 2,
+		"bounds": bounds,
+		"points": Lattice.create_identity_points(bounds, 2, 2),
+	}
+	canvas.configure(variation, "<rect x=\"0\" y=\"0\" width=\"100\" height=\"50\"/>", null)
+	var anchor := canvas._lattice_to_screen({"x": 50.0, "y": 25.0})
+
+	canvas.set_zoom(2.0, anchor)
+	var after_zoom := canvas._screen_to_lattice(anchor)
+
+	assert_almost_eq(after_zoom.x, 50.0, 0.01)
+	assert_almost_eq(after_zoom.y, 25.0, 0.01)
+
+	canvas.pan = Vector2(30.0, -20.0)
+	canvas.frame_lattice()
+
+	assert_almost_eq(canvas.zoom, 1.0, 0.01)
+	assert_eq(canvas.pan, Vector2.ZERO)

@@ -50,6 +50,7 @@ Before writing, content validation blocks:
 
 - Duplicate ids.
 - Missing equipment assets, visuals, rig targets, or pose parts.
+- Missing lattice source variation ids and invalid pose sprite override values.
 - Invalid layers, colors, and transforms.
 - Unknown fields or wrong field types in authored records.
 - Unsafe SVG markup such as scripts, embedded images, external references, event handlers, and unsafe protocols.
@@ -58,7 +59,11 @@ Before writing, content validation blocks:
 
 Wardrobe items and equipment visuals preview on the doll using a temporary outfit built from the draft repository clone. SVG assets preview only when `SvgSafety` accepts their markup. Body rig previews show the selected variant with pivots. Pose previews render the selected pose on the selected variant.
 
-The body rig lattice variation editor uses `res://scripts/ui/LatticeCanvas.gd`. It draws the selected source SVG, grid lines, and draggable control points; moving a point updates the selected lattice variation in the draft.
+The body rig preview supports pan, zoom, selected-part framing, and body-part click selection. Pivot labels default to selected/hovered parts to reduce clutter, with Body Rig form controls for showing all labels or hiding labels.
+
+If the repository synthesized required body-rig parts from defaults, the Body Rig section shows a repair notice. Pressing `Repair/Save Generated Parts` marks the draft dirty so `Save All` can explicitly persist those generated parts.
+
+The body rig lattice variation editor uses `res://scripts/ui/LatticeCanvas.gd`. It draws the selected source SVG, grid lines, and draggable control points; moving a point updates the selected lattice variation in the draft. The lattice canvas supports wheel zoom, middle-mouse pan, reset view, frame lattice, and selected-point status readout.
 
 The pose editor uses `res://scenes/ui/PosePreviewCanvas.tscn` and `res://scripts/doll/PoseKinematics.gd`. The canvas draws pose handles and guide lines over the rendered doll. Clicking a handle selects the part without dirtying the draft. Direct dragging is limited to hand and foot handles: hands solve the matching two-bone arm chain, and feet solve the matching thigh/shank chain with an inverted, rest-based knee bend preference. Numeric fields and sliders remain available for exact edits on any selected part.
 
@@ -71,4 +76,5 @@ Focused coverage exists in:
 - `res://tests/gut/TestDevEditorDraft.gd`
 - `res://tests/gut/TestDevEditorModels.gd`
 - `res://tests/gut/TestDevContentEditorWindow.gd`
+- `res://tests/gut/TestBodyRigPreviewCanvas.gd`
 - `res://tests/gut/TestPoseKinematics.gd`

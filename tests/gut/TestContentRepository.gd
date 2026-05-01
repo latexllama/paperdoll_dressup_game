@@ -40,6 +40,8 @@ func test_load_all_normalizes_required_body_rig_nodes() -> void:
 	var result = repo.load_all()
 
 	assert_true(result.get("ok", false), "; ".join(result.get("errors", [])))
+	assert_gt(result.get("generated_body_part_repairs", []).size(), 0)
+	assert_eq(repo.generated_body_part_repairs.size(), result.get("generated_body_part_repairs", []).size())
 	for variant in ["female", "male"]:
 		for part_id in ["tail", "horns", "leftToe", "rightToe", "neck", "head", "headNub"]:
 			var part = repo.body_part(variant, part_id)
@@ -49,6 +51,24 @@ func test_load_all_normalizes_required_body_rig_nodes() -> void:
 	assert_eq(repo.body_part("female", "tail").get("parentId"), "hip")
 	assert_eq(repo.body_part("female", "tail").get("layer"), "back")
 	assert_eq(repo.body_part("female", "tail").get("svgMarkup"), "<g/>")
+
+
+func test_generated_required_body_rig_repairs_are_persisted_only_after_explicit_save() -> void:
+	var repo := WritableRepository.new()
+	repo.content_dir = TEST_DIR
+	var load_result = repo.load_all()
+	assert_true(load_result.get("ok", false), "; ".join(load_result.get("errors", [])))
+	assert_gt(repo.generated_body_part_repairs.size(), 0)
+
+	var save_result = repo.save_collection("body_rig", repo.body_rig)
+
+	assert_true(save_result.get("ok", false), "; ".join(save_result.get("errors", [])))
+	var reloaded := ContentRepository.new()
+	reloaded.content_dir = TEST_DIR
+	var reload_result = reloaded.load_all()
+	assert_true(reload_result.get("ok", false), "; ".join(reload_result.get("errors", [])))
+	assert_eq(reloaded.generated_body_part_repairs.size(), 0)
+	assert_false(reloaded.body_part("female", "tail").is_empty())
 
 
 func test_invalid_save_does_not_replace_existing_collection_file() -> void:

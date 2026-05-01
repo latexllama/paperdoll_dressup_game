@@ -255,8 +255,9 @@ def normalize_body_rig_lateral_markup(body_rig: dict[str, Any]) -> None:
                 )
 
 
-def ensure_required_body_rig_nodes(body_rig: dict[str, Any]) -> None:
-    for variant_data in body_rig.values():
+def ensure_required_body_rig_nodes(body_rig: dict[str, Any]) -> dict[str, int]:
+    synthesized_counts: dict[str, int] = {}
+    for variant_id, variant_data in body_rig.items():
         parts = variant_data.get("parts", [])
         if not isinstance(parts, list):
             continue
@@ -287,6 +288,34 @@ def ensure_required_body_rig_nodes(body_rig: dict[str, Any]) -> None:
                 }
             )
             ids.add(part_id)
+            synthesized_counts[variant_id] = synthesized_counts.get(variant_id, 0) + 1
+    return synthesized_counts
+
+
+def count_unknown_wardrobe_fields(payload: list[dict[str, Any]]) -> int:
+    allowed = set(WARDROBE_ITEM_KEYS)
+    return sum(
+        1
+        for item in payload
+        if isinstance(item, dict)
+        for key in item.keys()
+        if key not in allowed
+    )
+
+
+def renderer_warnings_for_outputs(outputs: dict[str, Any]) -> list[str]:
+    warnings: list[str] = []
+    for variant_id, variant_data in outputs["body_rig.json"].items():
+        empty_parts = [
+            part.get("id", "")
+            for part in variant_data.get("parts", [])
+            if isinstance(part, dict) and part.get("svgMarkup", "").strip() == "<g/>"
+        ]
+        if empty_parts:
+            warnings.append(
+                f"body rig variant {variant_id} contains structural empty SVG parts: {', '.join(empty_parts)}"
+            )
+    return warnings
 
 
 def markup_center_x(markup: str) -> float | None:
@@ -384,7 +413,7 @@ def import_content(source_root: Path, project_root: Path, dry_run: bool = False)
     )
     tokenize_body_rig_colors(body_rig)
     normalize_body_rig_lateral_markup(body_rig)
-    ensure_required_body_rig_nodes(body_rig)
+    synthesized_required_body_parts = ensure_required_body_rig_nodes(body_rig)
     cta_sample_assets = extract_json_const(
         cta_sample_source,
         "export const ctaSampleAssets = ",
@@ -397,6 +426,7 @@ def import_content(source_root: Path, project_root: Path, dry_run: bool = False)
     )
 
     custom_equipment = json.loads(read_text(source_content_path(source_root, "equipmentAssets")))
+    wardrobe_payload = json.loads(read_text(source_content_path(source_root, "wardrobe")))
     equipment_assets = (
         cta_assets_to_records(cta_equipment)
         + extract_original_equipment_assets(original_equipment_source)
@@ -432,9 +462,7 @@ def import_content(source_root: Path, project_root: Path, dry_run: bool = False)
         "body_rig.json": body_rig,
         "equipment_assets.json": equipment_assets,
         "equipment_visuals.json": json.loads(read_text(source_content_path(source_root, "equipmentVisuals"))),
-        "wardrobe.json": wardrobe_to_dressup_records(
-            json.loads(read_text(source_content_path(source_root, "wardrobe")))
-        ),
+        "wardrobe.json": wardrobe_to_dressup_records(wardrobe_payload),
         "poses.json": json.loads(read_text(source_content_path(source_root, "poses"))),
         "sample_meta.json": sample_meta,
         "starting_outfit.json": starting_outfit,
@@ -450,6 +478,11 @@ def import_content(source_root: Path, project_root: Path, dry_run: bool = False)
         "equipmentAssets": len(equipment_assets),
         "equipmentVisuals": len(outputs["equipment_visuals.json"]),
         "poses": len(outputs["poses.json"]),
+        "unknownFieldCounts": {
+            "wardrobe": count_unknown_wardrobe_fields(wardrobe_payload),
+        },
+        "synthesizedRequiredBodyParts": synthesized_required_body_parts,
+        "rendererWarnings": renderer_warnings_for_outputs(outputs),
     }
     validation_errors = validate_outputs(outputs)
     manifest["validationErrors"] = validation_errors

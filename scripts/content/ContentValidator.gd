@@ -16,6 +16,8 @@ const BODY_VARIANT_KEYS := ["parts"]
 const BODY_PART_KEYS := ["id", "layer", "parentId", "pivot", "svgMarkup", "variations", "latticeVariations"]
 const POSE_KEYS := ["id", "name", "parts", "sprites"]
 const STARTING_OUTFIT_KEYS := ["id", "name", "variant", "poseId", "skinTone", "skinLine", "hairColor", "eyeColor", "equippedItemIds"]
+const HAND_SPRITES := ["", "relaxed", "open", "fist", "point"]
+const FOOT_SPRITES := ["", "front", "inward", "outward"]
 const OBSOLETE_WARDROBE_KEYS := [
 	"modifiers",
 	"requiredSkillLevels",
@@ -128,7 +130,12 @@ static func _validate_body_rig(body_rig: Dictionary) -> Array[String]:
 			if not (part.get("variations", {}) is Dictionary):
 				errors.append("%s variations must be an object" % label)
 				continue
+			var variation_ids := {}
 			for variation_id in part.get("variations", {}).keys():
+				var variation_key := String(variation_id)
+				if variation_key == "":
+					errors.append("%s contains a variation with an empty id" % label)
+				variation_ids[variation_key] = true
 				if not (part["variations"][variation_id] is String):
 					errors.append("%s variation \"%s\" must be SVG markup text" % [label, variation_id])
 				elif not SvgSafety.is_safe_markup(String(part["variations"][variation_id])):
@@ -137,9 +144,17 @@ static func _validate_body_rig(body_rig: Dictionary) -> Array[String]:
 				errors.append("%s latticeVariations must be an object" % label)
 				continue
 			for lattice_id in part.get("latticeVariations", {}).keys():
+				var lattice_key := String(lattice_id)
+				if lattice_key == "":
+					errors.append("%s contains a lattice variation with an empty id" % label)
+				if variation_ids.has(lattice_key):
+					errors.append("%s uses variation id \"%s\" for both SVG and lattice variations" % [label, lattice_key])
 				if not (part["latticeVariations"][lattice_id] is Dictionary):
 					errors.append("%s lattice variation \"%s\" must be an object" % [label, lattice_id])
 					continue
+				var source_variation_id := String(part["latticeVariations"][lattice_id].get("sourceVariationId", ""))
+				if source_variation_id != "" and not variation_ids.has(source_variation_id):
+					errors.append("%s lattice variation \"%s\" references missing source variation \"%s\"" % [label, lattice_id, source_variation_id])
 				for error in Lattice.validate_variation_shape(part["latticeVariations"][lattice_id]):
 					errors.append("%s lattice variation \"%s\" %s" % [label, lattice_id, error])
 	return errors
@@ -165,6 +180,8 @@ static func _validate_equipment_assets(assets: Array) -> Array[String]:
 				errors.append("%s variants must be an object" % label)
 				continue
 			for variant in asset.get("variants", {}).keys():
+				if String(variant) == "":
+					errors.append("%s contains an asset variant with an empty id" % label)
 				var variant_data = asset["variants"][variant]
 				if not (variant_data is Dictionary):
 					errors.append("%s %s variant must be an object" % [label, variant])
@@ -295,6 +312,19 @@ static func _validate_poses(poses: Array, repo: ContentRepository) -> Array[Stri
 				errors.append("%s has invalid sprite override part \"%s\"" % [label, part_id])
 			if not (pose["sprites"][part_id] is String):
 				errors.append("%s sprite override \"%s\" must be a string" % [label, part_id])
+				continue
+			var sprite_value := String(pose["sprites"][part_id])
+			var sprite_part := String(part_id)
+			if sprite_part == "leftHand" or sprite_part == "rightHand":
+				if not HAND_SPRITES.has(sprite_value):
+					errors.append("%s sprite override \"%s\" has invalid hand sprite \"%s\"" % [label, part_id, sprite_value])
+			elif sprite_part == "leftFoot" or sprite_part == "rightFoot":
+				if not FOOT_SPRITES.has(sprite_value):
+					errors.append("%s sprite override \"%s\" has invalid foot sprite \"%s\"" % [label, part_id, sprite_value])
+			elif sprite_value != "":
+				var variation_ids := _variation_ids_for_part(repo, sprite_part)
+				if variation_ids.is_empty() or not variation_ids.has(sprite_value):
+					errors.append("%s sprite override \"%s\" references missing variation \"%s\"" % [label, part_id, sprite_value])
 	return errors
 
 
@@ -378,3 +408,22 @@ static func _optional_bool_fields(record: Dictionary, fields: Array, label: Stri
 
 static func _is_valid_bounds(bounds: Variant) -> bool:
 	return bounds is Dictionary and _finite_number(bounds.get("x")) and _finite_number(bounds.get("y")) and _finite_number(bounds.get("width")) and _finite_number(bounds.get("height")) and float(bounds["width"]) > 0.0 and float(bounds["height"]) > 0.0
+
+
+static func _variation_ids_for_part(repo: ContentRepository, part_id: String) -> Array[String]:
+	var ids: Array[String] = []
+	if repo == null:
+		return ids
+	for variant in repo.body_rig.keys():
+		var part = repo.body_part(String(variant), part_id)
+		if part.is_empty():
+			continue
+		for id in part.get("variations", {}).keys():
+			var variation_id := String(id)
+			if variation_id != "" and not ids.has(variation_id):
+				ids.append(variation_id)
+		for id in part.get("latticeVariations", {}).keys():
+			var variation_id := String(id)
+			if variation_id != "" and not ids.has(variation_id):
+				ids.append(variation_id)
+	return ids

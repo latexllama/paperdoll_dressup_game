@@ -11,6 +11,7 @@ var _texture_cache = SvgTextureCacheScript.new()
 var _history = OutfitHistoryScript.new()
 var _outfit = OutfitStateScript.new()
 var _drag_session: Dictionary = {}
+var _pending_overwrite_save_name := ""
 
 @onready var _stage = %PaperDollStage
 @onready var _wardrobe_panel = %WardrobePanel
@@ -19,21 +20,27 @@ var _drag_session: Dictionary = {}
 @onready var _redo_button: Button = %RedoButton
 @onready var _save_dialog: AcceptDialog = %SaveDialog
 @onready var _save_name_edit: LineEdit = %SaveNameEdit
+@onready var _overwrite_save_dialog: ConfirmationDialog = %OverwriteSaveDialog
 @onready var _load_dialog: AcceptDialog = %LoadDialog
 @onready var _outfit_list: ItemList = %OutfitList
+@onready var _delete_outfit_button: Button = %DeleteOutfitButton
 @onready var _settings_dialog: AcceptDialog = %SettingsDialog
 @onready var _variant_option: OptionButton = %VariantOption
 @onready var _pose_option: OptionButton = %PoseOption
 @onready var _skin_picker: ColorPickerButton = %SkinPicker
 @onready var _hair_picker: ColorPickerButton = %HairPicker
 @onready var _eye_picker: ColorPickerButton = %EyePicker
+@onready var _reset_appearance_button: Button = %ResetAppearanceButton
 @onready var _dev_editor = %DevContentEditor
 
 
 func _ready() -> void:
 	var validation = _repo.load_all()
+	var initial_status := ""
 	if not validation.get("ok", false):
-		_set_status("Content validation failed: %s" % "; ".join(validation.get("errors", [])))
+		initial_status = "Content validation failed: %s" % "; ".join(validation.get("errors", []))
+	elif not validation.get("generated_body_part_repairs", []).is_empty():
+		initial_status = "Content loaded with generated body-rig repair defaults. Open Dev Editor > Body Rig to review and save them."
 	_outfit = OutfitStateScript.new(_repo.starting_outfit_snapshot())
 	_history.clear()
 	_stage.configure(_repo, _outfit, _texture_cache)
@@ -42,6 +49,8 @@ func _ready() -> void:
 	_connect_signals()
 	_populate_settings_options()
 	_refresh_all()
+	if initial_status != "":
+		_set_status(initial_status)
 
 
 func _connect_signals() -> void:
@@ -59,8 +68,15 @@ func _connect_signals() -> void:
 	%DevEditorButton.pressed.connect(_on_dev_editor_pressed)
 	%ResetButton.pressed.connect(_on_reset_pressed)
 	_save_dialog.confirmed.connect(_on_save_confirmed)
+	_overwrite_save_dialog.confirmed.connect(_on_overwrite_save_confirmed)
+	_overwrite_save_dialog.canceled.connect(func() -> void:
+		_pending_overwrite_save_name = ""
+	)
 	_load_dialog.confirmed.connect(_on_load_confirmed)
+	_outfit_list.item_selected.connect(_on_outfit_list_selected)
+	_delete_outfit_button.pressed.connect(_on_delete_outfit_pressed)
 	_settings_dialog.confirmed.connect(_on_settings_confirmed)
+	_reset_appearance_button.pressed.connect(_on_reset_appearance_pressed)
 	_dev_editor.content_saved.connect(_on_dev_content_saved)
 
 
@@ -174,7 +190,28 @@ func _on_save_pressed() -> void:
 
 
 func _on_save_confirmed() -> void:
-	var result = OutfitPersistenceScript.save_outfit(_save_name_edit.text, _outfit)
+	var safe_name = OutfitPersistenceScript._safe_file_name(_save_name_edit.text)
+	if safe_name == "":
+		_set_status("Save failed: outfit name is required.")
+		return
+	if OutfitPersistenceScript.outfit_exists(safe_name):
+		_pending_overwrite_save_name = safe_name
+		_overwrite_save_dialog.dialog_text = "Overwrite saved outfit \"%s\"?" % safe_name
+		_overwrite_save_dialog.popup_centered(Vector2i(420, 160))
+		return
+	_save_outfit_as(safe_name)
+
+
+func _on_overwrite_save_confirmed() -> void:
+	if _pending_overwrite_save_name == "":
+		return
+	var save_name := _pending_overwrite_save_name
+	_pending_overwrite_save_name = ""
+	_save_outfit_as(save_name)
+
+
+func _save_outfit_as(outfit_name: String) -> void:
+	var result = OutfitPersistenceScript.save_outfit(outfit_name, _outfit)
 	if result.get("ok", false):
 		_set_status("Saved outfit: %s" % result.get("name", ""))
 	else:
@@ -187,6 +224,10 @@ func _on_load_pressed() -> void:
 		_outfit_list.add_item(outfit_name)
 	if _outfit_list.item_count > 0:
 		_outfit_list.select(0)
+		_delete_outfit_button.disabled = false
+	else:
+		_delete_outfit_button.disabled = true
+		_set_status("No saved outfits found.")
 	_load_dialog.popup_centered(Vector2i(440, 360))
 
 
@@ -205,6 +246,28 @@ func _on_load_confirmed() -> void:
 	_remember_if_changed(before)
 	_refresh_all()
 	_set_status("Loaded outfit: %s" % outfit_name)
+
+
+func _on_outfit_list_selected(_index: int) -> void:
+	_delete_outfit_button.disabled = _outfit_list.get_selected_items().is_empty()
+
+
+func _on_delete_outfit_pressed() -> void:
+	var selected = _outfit_list.get_selected_items()
+	if selected.is_empty():
+		_set_status("No outfit selected to delete.")
+		return
+	var outfit_name = _outfit_list.get_item_text(selected[0])
+	var result = OutfitPersistenceScript.delete_outfit(outfit_name)
+	if not result.get("ok", false):
+		_set_status("Delete failed: %s" % "; ".join(result.get("errors", [])))
+		return
+	_outfit_list.remove_item(selected[0])
+	if _outfit_list.item_count > 0:
+		_outfit_list.select(clampi(selected[0], 0, _outfit_list.item_count - 1))
+	else:
+		_delete_outfit_button.disabled = true
+	_set_status("Deleted outfit: %s" % outfit_name)
 
 
 func _on_settings_pressed() -> void:
@@ -226,6 +289,15 @@ func _on_settings_confirmed() -> void:
 	_outfit.eye_color = "#%s" % _eye_picker.color.to_html(false)
 	_remember_if_changed(before)
 	_refresh_all()
+
+
+func _on_reset_appearance_pressed() -> void:
+	var defaults = _repo.starting_outfit_snapshot()
+	_select_option_by_text(_variant_option, String(defaults.get("variant", "female")))
+	_select_option_by_text(_pose_option, String(defaults.get("poseId", "idle")))
+	_skin_picker.color = Color.html(String(defaults.get("skinTone", "#d28062")))
+	_hair_picker.color = Color.html(String(defaults.get("hairColor", "#221a16")))
+	_eye_picker.color = Color.html(String(defaults.get("eyeColor", "#222222")))
 
 
 func _on_dev_editor_pressed() -> void:

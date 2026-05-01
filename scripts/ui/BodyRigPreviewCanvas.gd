@@ -11,12 +11,16 @@ const MIN_ZOOM := 0.25
 const MAX_ZOOM := 4.0
 const ZOOM_STEP := 1.1
 const PIVOT_RADIUS := 5.0
+const LABEL_SELECTED_HOVER := "selected_hover"
+const LABEL_ALL := "all"
+const LABEL_NONE := "none"
 
 var repo: ContentRepository
 var variant := "female"
 var selected_part := ""
 var body_texture: Texture2D
 var pose: Dictionary = {"id": "__body_rig_zero__", "parts": {}, "sprites": {}}
+var pivot_label_mode := LABEL_SELECTED_HOVER
 var zoom := 1.0
 var pan := Vector2.ZERO
 
@@ -33,6 +37,7 @@ func configure(next_repo: ContentRepository, next_variant: String, next_selected
 	selected_part = next_selected_part
 	body_texture = next_texture
 	pose = options.get("pose", {"id": "__body_rig_zero__", "parts": {}, "sprites": {}})
+	pivot_label_mode = String(options.get("label_mode", pivot_label_mode))
 	if variant_changed:
 		reset_view()
 	queue_redraw()
@@ -176,9 +181,20 @@ func _draw_pivots() -> void:
 		var fill := Color(1.0, 0.58, 0.12, 1.0) if is_selected else Color(1.0, 0.86, 0.34, 0.95)
 		draw_circle(screen_position, PIVOT_RADIUS + (2.0 if is_selected else 0.0), fill)
 		draw_arc(screen_position, PIVOT_RADIUS + (2.0 if is_selected else 0.0), 0.0, TAU, 18, Color(0.08, 0.09, 0.10, 0.95), 1.5)
+		if not _should_draw_pivot_label(part_id):
+			continue
 		var label_position := screen_position + Vector2(8.0, -7.0)
 		draw_string(font, label_position + Vector2(1.0, 1.0), part_id, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size, Color(0.02, 0.03, 0.04, 0.88))
 		draw_string(font, label_position, part_id, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size, Color(1.0, 1.0, 1.0, 0.95))
+
+
+func _should_draw_pivot_label(part_id: String) -> bool:
+	match pivot_label_mode:
+		LABEL_ALL:
+			return true
+		LABEL_NONE:
+			return false
+	return part_id == selected_part or part_id == _hovered_part
 
 
 func _body_part_at_screen_position(screen_position: Vector2) -> String:

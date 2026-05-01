@@ -55,6 +55,32 @@ func test_content_validation_rejects_unknown_fields_and_bad_starting_outfit_refs
 	assert_string_contains("; ".join(result.get("errors", [])), "missing wardrobe item")
 
 
+func test_content_validation_rejects_invalid_body_variation_references() -> void:
+	var repo = _valid_repo()
+	var part: Dictionary = repo.body_rig["female"]["parts"][0]
+	part["variations"]["shape"] = "<g/>"
+	part["latticeVariations"]["shape"] = _valid_lattice("missing-source")
+	var result = ContentValidator.validate_repository(repo)
+
+	assert_false(result.get("ok", true))
+	assert_string_contains("; ".join(result.get("errors", [])), "both SVG and lattice")
+	assert_string_contains("; ".join(result.get("errors", [])), "missing source variation")
+
+
+func test_content_validation_rejects_invalid_pose_sprite_overrides() -> void:
+	var repo = _valid_repo()
+	repo.poses[0]["sprites"] = {
+		"leftHand": "not-a-hand-sprite",
+		"body": "missing-variation",
+	}
+
+	var result = ContentValidator.validate_repository(repo)
+
+	assert_false(result.get("ok", true))
+	assert_string_contains("; ".join(result.get("errors", [])), "invalid hand sprite")
+	assert_string_contains("; ".join(result.get("errors", [])), "missing variation")
+
+
 func _valid_repo() -> ContentRepository:
 	var body_part = {
 		"id": "body",
@@ -89,3 +115,14 @@ func _valid_repo() -> ContentRepository:
 	repo.starting_outfit = {}
 	repo._rebuild_indexes()
 	return repo
+
+
+func _valid_lattice(source_variation_id: String) -> Dictionary:
+	var bounds := {"x": 0.0, "y": 0.0, "width": 10.0, "height": 10.0}
+	return {
+		"sourceVariationId": source_variation_id,
+		"rows": 3,
+		"columns": 3,
+		"bounds": bounds,
+		"points": Lattice.create_identity_points(bounds, 3, 3),
+	}

@@ -2,12 +2,22 @@ class_name LatticeCanvas
 extends Control
 
 signal point_moved(index: int, point: Dictionary)
+signal status_changed(message: String)
+
+const MIN_ZOOM := 0.25
+const MAX_ZOOM := 6.0
+const ZOOM_STEP := 1.1
 
 var variation: Dictionary = {}
 var source_markup := ""
 var texture_cache: Variant
+var zoom := 1.0
+var pan := Vector2.ZERO
 
 var _drag_index := -1
+var _is_panning := false
+var _pan_start_mouse := Vector2.ZERO
+var _pan_start_offset := Vector2.ZERO
 var _source_texture: Texture2D
 
 
@@ -16,24 +26,85 @@ func configure(next_variation: Dictionary, next_source_markup: String, next_text
 	source_markup = next_source_markup
 	texture_cache = next_texture_cache
 	_source_texture = _build_source_texture()
+	reset_view()
 	queue_redraw()
+
+
+func set_zoom(next_zoom: float, anchor_screen_position := Vector2(-1.0, -1.0)) -> void:
+	var anchor := anchor_screen_position
+	if anchor.x < 0.0 or anchor.y < 0.0:
+		anchor = size * 0.5
+	var point_before := _screen_to_lattice(anchor)
+	var next_value := clampf(next_zoom, MIN_ZOOM, MAX_ZOOM)
+	if is_equal_approx(next_value, zoom):
+		return
+	zoom = next_value
+	var screen_after := _lattice_to_screen(point_before)
+	pan += anchor - screen_after
+	queue_redraw()
+
+
+func reset_view() -> void:
+	zoom = 1.0
+	pan = Vector2.ZERO
+	_drag_index = -1
+	_is_panning = false
+	queue_redraw()
+
+
+func frame_lattice() -> void:
+	reset_view()
+	status_changed.emit("Framed lattice.")
 
 
 func _gui_input(event: InputEvent) -> void:
 	if variation.is_empty():
 		return
-	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT:
+	if event is InputEventMouseButton:
+		_handle_mouse_button(event)
+	elif event is InputEventMouseMotion:
+		_handle_mouse_motion(event)
+
+
+func _handle_mouse_button(event: InputEventMouseButton) -> void:
+	if event.button_index == MOUSE_BUTTON_WHEEL_UP and event.pressed:
+		set_zoom(zoom * ZOOM_STEP, event.position)
+		accept_event()
+	elif event.button_index == MOUSE_BUTTON_WHEEL_DOWN and event.pressed:
+		set_zoom(zoom / ZOOM_STEP, event.position)
+		accept_event()
+	elif event.button_index == MOUSE_BUTTON_MIDDLE:
+		if event.pressed:
+			_is_panning = true
+			_pan_start_mouse = event.position
+			_pan_start_offset = pan
+		else:
+			_is_panning = false
+		accept_event()
+	elif event.button_index == MOUSE_BUTTON_LEFT:
 		if event.pressed:
 			_drag_index = _nearest_point(event.position)
 			if _drag_index >= 0:
+				status_changed.emit(_point_status(_drag_index, variation.get("points", [])[_drag_index]))
 				accept_event()
 		else:
 			_drag_index = -1
 			accept_event()
-	elif event is InputEventMouseMotion and _drag_index >= 0:
+
+
+func _handle_mouse_motion(event: InputEventMouseMotion) -> void:
+	if _is_panning:
+		if (event.button_mask & MOUSE_BUTTON_MASK_MIDDLE) == 0:
+			_is_panning = false
+			return
+		pan = _pan_start_offset + event.position - _pan_start_mouse
+		queue_redraw()
+		accept_event()
+	elif _drag_index >= 0:
 		var point = _screen_to_lattice(event.position)
 		variation["points"][_drag_index] = point
 		point_moved.emit(_drag_index, point)
+		status_changed.emit(_point_status(_drag_index, point))
 		queue_redraw()
 		accept_event()
 
@@ -90,6 +161,12 @@ func _nearest_point(screen_position: Vector2) -> int:
 
 
 func _canvas_rect() -> Rect2:
+	var fit_rect := _fit_canvas_rect()
+	var rect_size := fit_rect.size * zoom
+	return Rect2(fit_rect.get_center() + pan - rect_size * 0.5, rect_size)
+
+
+func _fit_canvas_rect() -> Rect2:
 	var bounds: Dictionary = variation.get("bounds", {"width": 1.0, "height": 1.0})
 	var padding := 22.0
 	var available = Rect2(Vector2(padding, padding), Vector2(maxf(1.0, size.x - padding * 2.0), maxf(1.0, size.y - padding * 2.0)))
@@ -133,3 +210,11 @@ func _build_source_texture() -> Texture2D:
 		source_markup,
 	]
 	return texture_cache.texture_from_svg(svg, 1.0)
+
+
+func _point_status(index: int, point: Dictionary) -> String:
+	return "Lattice point %d: %.1f, %.1f" % [
+		index,
+		float(point.get("x", 0.0)),
+		float(point.get("y", 0.0)),
+	]

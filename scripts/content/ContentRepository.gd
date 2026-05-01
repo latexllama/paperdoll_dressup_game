@@ -82,6 +82,7 @@ var poses: Array = []
 var sample_meta: Dictionary = {}
 var starting_outfit: Dictionary = {}
 var last_load_errors: Array[String] = []
+var generated_body_part_repairs: Array[Dictionary] = []
 
 var _asset_by_id: Dictionary = {}
 var _visual_by_id: Dictionary = {}
@@ -92,7 +93,8 @@ var _rig_part_by_variant: Dictionary = {}
 
 func load_all() -> Dictionary:
 	last_load_errors = []
-	body_rig = _normalize_body_rig(_load_json("body_rig.json", {}, TYPE_DICTIONARY))
+	generated_body_part_repairs = []
+	body_rig = _normalize_body_rig(_load_json("body_rig.json", {}, TYPE_DICTIONARY), true)
 	equipment_assets = _load_json("equipment_assets.json", [], TYPE_ARRAY)
 	equipment_visuals = _load_json("equipment_visuals.json", [], TYPE_ARRAY)
 	wardrobe = _load_json("wardrobe.json", [], TYPE_ARRAY)
@@ -109,6 +111,7 @@ func load_all() -> Dictionary:
 		"errors": errors,
 		"load_errors": last_load_errors.duplicate(),
 		"validation_errors": validation.get("errors", []),
+		"generated_body_part_repairs": generated_body_part_repairs.duplicate(true),
 	}
 
 
@@ -150,6 +153,7 @@ func set_collection(collection_name: String, value: Variant) -> void:
 	match collection_name:
 		"body_rig":
 			body_rig = _normalize_body_rig(value)
+			generated_body_part_repairs = []
 		"equipment_assets":
 			equipment_assets = value
 		"equipment_visuals":
@@ -262,7 +266,7 @@ func _normalized_collection_value(collection_name: String, raw_value: Variant) -
 	return raw_value
 
 
-func _normalize_body_rig(raw_body_rig: Variant) -> Dictionary:
+func _normalize_body_rig(raw_body_rig: Variant, track_repairs := false) -> Dictionary:
 	if not (raw_body_rig is Dictionary):
 		return {}
 	var normalized: Dictionary = raw_body_rig.duplicate(true)
@@ -289,6 +293,11 @@ func _normalize_body_rig(raw_body_rig: Variant) -> Dictionary:
 			if not ids.has(required_id):
 				parts.append(_default_body_part(required_id))
 				ids[required_id] = true
+				if track_repairs:
+					generated_body_part_repairs.append({
+						"variant": String(variant),
+						"partId": required_id,
+					})
 	return normalized
 
 

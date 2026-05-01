@@ -27,11 +27,15 @@ Outfits are saved atomically to `user://outfits/*.json` through `res://scripts/g
 
 Loaded outfits are validated against `ContentRepository` before being applied. Missing variants, poses, wardrobe ids, invalid colors, and non-canonical keys are reported as load errors.
 
+The player UI confirms before overwriting an existing outfit, reports empty outfit lists, and supports deleting saved outfit files from the load dialog.
+
 `res://scripts/game/OutfitHistory.gd` keeps bounded undo/redo snapshots and skips repeated identical snapshots.
 
 ## Content Loading
 
 `ContentRepository.load_all()` reports missing files, invalid JSON, and wrong root types in `load_errors`, then combines those with content validation errors. Content saves use temporary files plus backup/replace behavior so a validation-blocked save does not replace the existing source JSON.
+
+When a body rig is missing required renderer-known body parts, `ContentRepository` synthesizes default parts in memory and reports them through `generated_body_part_repairs`. The Dev Content Editor shows that repair state and requires an explicit repair/save action before those generated parts are persisted to `res://content/body_rig.json`.
 
 `SvgTextureCache` keeps an LRU-bounded runtime texture cache and should be cleared after source content reloads.
 

@@ -128,6 +128,21 @@ func test_body_rig_pivot_sliders_update_selected_part() -> void:
 	assert_true(editor._draft.is_dirty())
 
 
+func test_body_rig_repair_notice_can_mark_generated_parts_for_save() -> void:
+	var editor = await _configured_editor()
+	editor.repo.generated_body_part_repairs = [{"variant": "female", "partId": "tail"}]
+	editor._section = "body_rig"
+	editor._selected_variant = "female"
+	editor._selected_id = "tail"
+	editor._render_form()
+	editor._draft.mark_clean()
+
+	_button_for_text(editor, "Repair/Save Generated Parts").pressed.emit()
+
+	assert_true(editor._draft.is_dirty())
+	assert_string_contains(editor._status.text, "ready to save")
+
+
 func test_pose_canvas_ik_updates_upper_and_forearm_transforms() -> void:
 	var editor = load("res://scenes/ui/DevContentEditor.tscn").instantiate()
 	add_child_autoqfree(editor)

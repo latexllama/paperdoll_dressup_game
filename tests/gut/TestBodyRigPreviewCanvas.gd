@@ -77,6 +77,21 @@ func test_canvas_reset_and_frame_selected_part_update_view() -> void:
 	assert_almost_eq(framed_screen.y, canvas.size.y * 0.5, 1.0)
 
 
+func test_canvas_pivot_label_modes_reduce_label_clutter() -> void:
+	var canvas := _configured_canvas()
+
+	canvas.pivot_label_mode = BodyRigPreviewCanvas.LABEL_NONE
+	assert_false(canvas._should_draw_pivot_label("basePart"))
+
+	canvas.pivot_label_mode = BodyRigPreviewCanvas.LABEL_SELECTED_HOVER
+	canvas.selected_part = "basePart"
+	assert_true(canvas._should_draw_pivot_label("basePart"))
+	assert_false(canvas._should_draw_pivot_label("frontPart"))
+
+	canvas.pivot_label_mode = BodyRigPreviewCanvas.LABEL_ALL
+	assert_true(canvas._should_draw_pivot_label("frontPart"))
+
+
 func test_body_rig_preview_svg_uses_zero_pose_and_empty_equipment_stack() -> void:
 	var repo := _preview_repo()
 	repo.poses = [{"id": "idle", "name": "Idle", "parts": {"basePart": {"rotate": 37.0}}, "sprites": {}}]

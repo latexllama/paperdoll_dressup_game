@@ -46,6 +46,8 @@ After import, run content validation through the GUT suite and run a headless Go
 
 Dry-run and write modes validate generated references before source files are written. The import blocks duplicate ids, missing visual/asset/rig references, missing starting outfit references, and obsolete wardrobe fields.
 
+The dry-run manifest reports unknown source wardrobe field counts, synthesized required body-part counts, and renderer-relevant warnings such as structural empty SVG parts. These warnings are informational when validation errors are empty.
+
 The importer normalizes body rigs so every renderer-known node from `DollSvgBuilder.BASE_PIVOTS` is available as a configurable body-rig part. Source SVG parts imported from `my_sim` keep their artwork; structural nodes that do not have authored SVG, such as toes, horns, tail, and helper head pivots, are emitted as empty `<g/>` parts with stable pivots, parent ids, layers, and empty variation maps.
 
 Imported body-rig hair, brow, and iris SVG fills are normalized to semantic color tokens where known so runtime appearance settings can recolor them. `DollSvgBuilder` still keeps a fallback fixed-fill map for older or manually authored SVG that has not been reimported.

@@ -1,4 +1,4 @@
-[gd_scene load_steps=2 format=3]
+[gd_scene format=3 uid="uid://cef8od2c7knhj"]
 
 [ext_resource type="Script" path="res://scripts/ui/BodyRigPreviewCanvas.gd" id="1_script"]
 

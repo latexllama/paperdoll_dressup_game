@@ -69,6 +69,26 @@ static func list_outfits() -> Array[String]:
 	return names
 
 
+static func outfit_exists(name: String) -> bool:
+	var safe_name = _safe_file_name(name)
+	if safe_name == "":
+		return false
+	return FileAccess.file_exists("%s/%s.json" % [OUTFIT_DIR, safe_name])
+
+
+static func delete_outfit(name: String) -> Dictionary:
+	var safe_name = _safe_file_name(name)
+	if safe_name == "":
+		return {"ok": false, "errors": ["Outfit name is required."]}
+	var path = "%s/%s.json" % [OUTFIT_DIR, safe_name]
+	if not FileAccess.file_exists(path):
+		return {"ok": false, "errors": ["Outfit file was not found."]}
+	var remove_error = DirAccess.remove_absolute(ProjectSettings.globalize_path(path))
+	if remove_error != OK:
+		return {"ok": false, "errors": ["Could not delete outfit file: %s" % remove_error]}
+	return {"ok": true, "errors": [], "name": safe_name}
+
+
 static func _safe_file_name(name: String) -> String:
 	var trimmed = name.strip_edges()
 	var result := ""

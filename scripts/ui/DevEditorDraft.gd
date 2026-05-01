@@ -12,6 +12,7 @@ var sample_meta: Dictionary = {}
 var starting_outfit: Dictionary = {}
 
 var _baseline_signature := ""
+var _forced_dirty := false
 
 
 func load_from_repository(repo: ContentRepository) -> void:
@@ -23,6 +24,7 @@ func load_from_repository(repo: ContentRepository) -> void:
 	sample_meta = repo.sample_meta.duplicate(true)
 	starting_outfit = repo.starting_outfit.duplicate(true)
 	_baseline_signature = signature()
+	_forced_dirty = false
 
 
 func repository_clone() -> ContentRepository:
@@ -72,11 +74,16 @@ func validate() -> Dictionary:
 
 
 func is_dirty() -> bool:
-	return signature() != _baseline_signature
+	return _forced_dirty or signature() != _baseline_signature
 
 
 func mark_clean() -> void:
 	_baseline_signature = signature()
+	_forced_dirty = false
+
+
+func force_dirty() -> void:
+	_forced_dirty = true
 
 
 func signature() -> String:
