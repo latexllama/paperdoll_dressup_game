@@ -146,9 +146,9 @@ static func top_visible_equipped_item_id(repo: ContentRepository, outfit: Varian
 	return top_item_id
 
 
-static func top_visible_equipped_item_id_at(repo: ContentRepository, outfit: Variant, actor_position: Vector2) -> String:
+static func top_visible_equipped_item_id_at(repo: ContentRepository, outfit: Variant, actor_position: Vector2, options: Dictionary = {}) -> String:
 	var top_item_id := ""
-	var pose = repo.pose(outfit.pose_id)
+	var pose = options.get("poseOverride", repo.pose(outfit.pose_id))
 	for layer in LAYER_ORDER:
 		for item_id in outfit.equipped_item_ids:
 			var item = repo.wardrobe_item(String(item_id))

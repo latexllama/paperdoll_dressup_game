@@ -56,6 +56,14 @@ func test_visual_rename_updates_wardrobe_references() -> void:
 	assert_eq(wardrobe[0]["visualId"], "newVisual")
 
 
+func test_pose_rename_updates_animation_keyframes() -> void:
+	var animations = [{"id": "anim", "keyframes": [{"frame": 0, "poseId": "oldPose"}]}]
+
+	Models.rename_pose_references(animations, "oldPose", "newPose")
+
+	assert_eq(animations[0]["keyframes"][0]["poseId"], "newPose")
+
+
 func test_body_part_rename_updates_visuals_and_poses() -> void:
 	var draft = DevEditorDraftScript.new()
 	draft.body_rig = {"female": {"parts": [{"id": "oldPart", "parentId": ""}, {"id": "child", "parentId": "oldPart"}]}}

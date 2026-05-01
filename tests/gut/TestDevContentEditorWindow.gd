@@ -237,6 +237,11 @@ func test_existing_identity_fields_are_read_only() -> void:
 	editor._render_form()
 	assert_false(_line_edit_for_label(editor, "ID").editable)
 
+	editor._section = "animations"
+	editor._selected_id = String(editor._draft.animations[0]["id"])
+	editor._render_form()
+	assert_false(_line_edit_for_label(editor, "ID").editable)
+
 	editor._section = "body_rig"
 	editor._selected_id = String(part["id"])
 	part["variations"]["existingVariationForTest"] = String(part.get("svgMarkup", ""))
@@ -355,6 +360,45 @@ func test_new_svg_and_lattice_variation_ids_are_editable_only_during_creation() 
 	assert_false(_line_edit_for_label(editor, "Lattice ID").editable)
 
 
+func test_animation_section_sets_and_deletes_keyframes_without_deleting_poses() -> void:
+	var editor = await _configured_editor()
+	editor._section = "animations"
+	editor._selected_id = String(editor._draft.animations[0]["id"])
+	var pose_count := editor._draft.poses.size()
+	var keyframe_count := editor._draft.animations[0]["keyframes"].size()
+	var pose_id := String(editor._draft.poses[0]["id"])
+	editor._render_form()
+
+	editor._on_animation_set_keyframe_requested(4, pose_id)
+
+	assert_eq(int(editor._draft.animations[0]["keyframes"][1]["frame"]), 4)
+	assert_eq(editor._draft.poses.size(), pose_count)
+
+	editor._on_animation_delete_keyframe_requested(4)
+
+	assert_eq(editor._draft.poses.size(), pose_count)
+	assert_eq(editor._draft.animations[0]["keyframes"].size(), keyframe_count)
+
+
+func test_animation_create_pose_keyframe_prompts_for_pose_id() -> void:
+	var editor = await _configured_editor()
+	editor._section = "animations"
+	editor._selected_id = String(editor._draft.animations[0]["id"])
+	var keyframe_count := editor._draft.animations[0]["keyframes"].size()
+	editor._render_form()
+
+	editor._on_animation_create_pose_requested(6)
+
+	assert_true(editor._create_id_dialog.visible)
+	editor._create_id_edit.text = "anim-created-pose"
+	editor._on_create_id_text_changed("anim-created-pose")
+	editor._on_create_id_confirmed()
+
+	assert_false(DevEditorModels.record_by_id(editor._draft.poses, "anim-created-pose").is_empty())
+	assert_eq(editor._draft.animations[0]["keyframes"].size(), keyframe_count + 1)
+	assert_true(_animation_has_keyframe(editor._draft.animations[0], 6, "anim-created-pose"))
+
+
 func _configured_editor(repository: ContentRepository = null) -> DevContentEditor:
 	var editor = load("res://scenes/ui/DevContentEditor.tscn").instantiate()
 	add_child_autoqfree(editor)
@@ -389,3 +433,10 @@ func _find_button_for_text(root: Node, text: String) -> Button:
 		if nested != null:
 			return nested
 	return null
+
+
+func _animation_has_keyframe(animation: Dictionary, frame: int, pose_id: String) -> bool:
+	for keyframe in animation.get("keyframes", []):
+		if keyframe is Dictionary and int(keyframe.get("frame", -1)) == frame and String(keyframe.get("poseId", "")) == pose_id:
+			return true
+	return false

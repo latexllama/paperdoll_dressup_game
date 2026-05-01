@@ -16,7 +16,7 @@ func before_each() -> void:
 
 
 func after_each() -> void:
-	for file_name in ["body_rig.json", "equipment_assets.json", "equipment_visuals.json", "wardrobe.json", "poses.json", "sample_meta.json", "starting_outfit.json", "wardrobe.json.tmp", "wardrobe.json.bak"]:
+	for file_name in ["body_rig.json", "equipment_assets.json", "equipment_visuals.json", "wardrobe.json", "poses.json", "animations.json", "sample_meta.json", "starting_outfit.json", "wardrobe.json.tmp", "wardrobe.json.bak"]:
 		var path = "%s/%s" % [TEST_DIR, file_name]
 		if FileAccess.file_exists(path):
 			DirAccess.remove_absolute(ProjectSettings.globalize_path(path))
@@ -111,6 +111,9 @@ func _write_valid_content(base_dir: String) -> void:
 	])
 	_write_json("%s/poses.json" % base_dir, [
 		{"id": "idle", "name": "Idle", "parts": {"body": {"rotate": 0.0}}, "sprites": {}},
+	])
+	_write_json("%s/animations.json" % base_dir, [
+		{"id": "idle", "name": "Idle", "frameCount": 48, "fps": 24.0, "loop": true, "visibleInPlayer": true, "keyframes": [{"frame": 0, "poseId": "idle"}]},
 	])
 	_write_json("%s/sample_meta.json" % base_dir, {"variants": {"female": {"baseScale": 1.0}, "male": {"baseScale": 1.0}}})
 	_write_json("%s/starting_outfit.json" % base_dir, {

@@ -1,13 +1,14 @@
 class_name DevEditorDraft
 extends RefCounted
 
-const SAVE_ORDER := ["equipment_assets", "equipment_visuals", "wardrobe", "body_rig", "poses"]
+const SAVE_ORDER := ["equipment_assets", "equipment_visuals", "body_rig", "poses", "animations", "wardrobe"]
 
 var wardrobe: Array = []
 var equipment_visuals: Array = []
 var equipment_assets: Array = []
 var body_rig: Dictionary = {}
 var poses: Array = []
+var animations: Array = []
 var sample_meta: Dictionary = {}
 var starting_outfit: Dictionary = {}
 
@@ -21,6 +22,7 @@ func load_from_repository(repo: ContentRepository) -> void:
 	equipment_assets = repo.equipment_assets.duplicate(true)
 	body_rig = repo.body_rig.duplicate(true)
 	poses = repo.poses.duplicate(true)
+	animations = repo.animations.duplicate(true)
 	sample_meta = repo.sample_meta.duplicate(true)
 	starting_outfit = repo.starting_outfit.duplicate(true)
 	_baseline_signature = signature()
@@ -34,6 +36,7 @@ func repository_clone() -> ContentRepository:
 	clone.equipment_assets = equipment_assets.duplicate(true)
 	clone.body_rig = body_rig.duplicate(true)
 	clone.poses = poses.duplicate(true)
+	clone.animations = animations.duplicate(true)
 	clone.sample_meta = sample_meta.duplicate(true)
 	clone.starting_outfit = starting_outfit.duplicate(true)
 	clone.set_collection("equipment_assets", clone.equipment_assets)
@@ -52,6 +55,8 @@ func collection(collection_name: String) -> Variant:
 			return body_rig
 		"poses":
 			return poses
+		"animations":
+			return animations
 	return []
 
 
@@ -67,6 +72,8 @@ func set_collection(collection_name: String, value: Variant) -> void:
 			body_rig = value
 		"poses":
 			poses = value
+		"animations":
+			animations = value
 
 
 func validate() -> Dictionary:
@@ -93,6 +100,7 @@ func signature() -> String:
 		"equipment_assets": equipment_assets,
 		"body_rig": body_rig,
 		"poses": poses,
+		"animations": animations,
 	})
 
 
@@ -108,6 +116,7 @@ func save_all(repo: ContentRepository) -> Dictionary:
 		"wardrobe": repo.wardrobe.duplicate(true),
 		"body_rig": repo.body_rig.duplicate(true),
 		"poses": repo.poses.duplicate(true),
+		"animations": repo.animations.duplicate(true),
 	}
 	var validation_repo = repository_clone()
 	for collection_name in SAVE_ORDER:

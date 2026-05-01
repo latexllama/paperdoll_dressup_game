@@ -7,6 +7,8 @@ const OutfitStateScript := preload("res://scripts/game/OutfitState.gd")
 const DevEditorDraftScript := preload("res://scripts/ui/DevEditorDraft.gd")
 const PoseKinematicsScript := preload("res://scripts/doll/PoseKinematics.gd")
 const BodyRigSvgExporterScript := preload("res://scripts/doll/BodyRigSvgExporter.gd")
+const AnimationSamplerScript := preload("res://scripts/doll/AnimationSampler.gd")
+const AnimationTimelineEditorScene := preload("res://scenes/ui/AnimationTimelineEditor.tscn")
 const Models := preload("res://scripts/ui/DevEditorModels.gd")
 
 const SECTION_WARDROBE := "wardrobe"
@@ -14,6 +16,7 @@ const SECTION_VISUALS := "equipment_visuals"
 const SECTION_ASSETS := "equipment_assets"
 const SECTION_BODY_RIG := "body_rig"
 const SECTION_POSES := "poses"
+const SECTION_ANIMATIONS := "animations"
 
 const SECTIONS := [
 	{"id": SECTION_WARDROBE, "label": "Wardrobe"},
@@ -21,6 +24,7 @@ const SECTIONS := [
 	{"id": SECTION_ASSETS, "label": "SVG Assets"},
 	{"id": SECTION_BODY_RIG, "label": "Body Rig"},
 	{"id": SECTION_POSES, "label": "Poses"},
+	{"id": SECTION_ANIMATIONS, "label": "Animations"},
 ]
 
 var repo: ContentRepository
@@ -35,6 +39,7 @@ var _selected_svg_variation_id := ""
 var _selected_lattice_id := ""
 var _selected_pose_part := "body"
 var _selected_asset_variant := "female"
+var _animation_frame := 0.0
 var _asset_import_target_id := ""
 var _pose_show_pivots := true
 var _pose_show_guides := true
@@ -158,6 +163,7 @@ func _on_section_selected(index: int) -> void:
 	_selected_svg_variation_id = ""
 	_selected_lattice_id = ""
 	_selected_pose_part = "body"
+	_animation_frame = 0.0
 	_refresh_all()
 
 
@@ -203,6 +209,7 @@ func _on_record_selected(index: int) -> void:
 	_selected_piece_index = 0
 	_selected_svg_variation_id = ""
 	_selected_lattice_id = ""
+	_animation_frame = 0.0
 	_render_form()
 
 
@@ -239,6 +246,10 @@ func _on_add_pressed() -> void:
 			var pose = Models.create_pose(_draft.poses)
 			_draft.poses.append(pose)
 			_selected_id = String(pose["id"])
+		SECTION_ANIMATIONS:
+			var animation = Models.create_animation(_draft.animations)
+			_draft.animations.append(animation)
+			_selected_id = String(animation["id"])
 	_begin_creation_id_edit(_section, "record", _selected_id)
 	_after_collection_edit("Added record.")
 
@@ -316,6 +327,15 @@ func _duplicate_record_with_id(source_section: String, source_id: String, duplic
 			pose_clone["id"] = duplicate_id
 			_draft.poses.append(pose_clone)
 			_selected_id = String(pose_clone["id"])
+		SECTION_ANIMATIONS:
+			var animation_record = Models.record_by_id(_draft.animations, source_id)
+			if animation_record.is_empty():
+				_set_status("Duplicate failed: source animation no longer exists.")
+				return
+			var animation_clone = Models.duplicate_record(animation_record, _draft.animations)
+			animation_clone["id"] = duplicate_id
+			_draft.animations.append(animation_clone)
+			_selected_id = String(animation_clone["id"])
 	_after_collection_edit("Duplicated record.")
 
 
@@ -335,6 +355,8 @@ func _on_delete_pressed() -> void:
 			_remove_record_by_id(_parts_for_selected_variant(), _selected_id)
 		SECTION_POSES:
 			_remove_record_by_id(_draft.poses, _selected_id)
+		SECTION_ANIMATIONS:
+			_remove_record_by_id(_draft.animations, _selected_id)
 	_selected_id = ""
 	_after_collection_edit("Deleted record.")
 
@@ -369,6 +391,8 @@ func _render_form() -> void:
 			_build_body_rig_form()
 		SECTION_POSES:
 			_build_pose_form()
+		SECTION_ANIMATIONS:
+			_build_animation_form()
 
 
 func _build_wardrobe_form() -> void:
@@ -405,9 +429,57 @@ func _build_wardrobe_form() -> void:
 		_mark_changed("Updated base color.")
 	)
 	_add_optional_color("Accent Color", item, "accentColor")
+	_build_wardrobe_animation_links(item)
 	var coverage_visual = Models.record_by_id(_draft.equipment_visuals, String(item.get("visualId", "")))
 	_add_coverage_view(coverage_visual)
 	_refresh_wardrobe_preview(item)
+
+
+func _build_wardrobe_animation_links(item: Dictionary) -> void:
+	_add_title("Linked Animations")
+	var animation_ids: Array = item.get("animationIds", []) if item.get("animationIds", []) is Array else []
+	if animation_ids.is_empty():
+		_add_note("No animations linked.")
+	for index in range(animation_ids.size()):
+		var row = _add_row()
+		var animation_id := String(animation_ids[index])
+		var animation := Models.record_by_id(_draft.animations, animation_id)
+		var label := Label.new()
+		label.text = "%s  %s" % [animation_id, String(animation.get("name", "Missing animation"))]
+		label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		row.add_child(label)
+		row.add_child(_button("Remove", func(next_id: String = animation_id) -> void:
+			_remove_wardrobe_animation_link(item, next_id)
+		))
+	var available_ids := _ids_for(_draft.animations)
+	if available_ids.is_empty():
+		_add_note("No animations are authored.")
+		return
+	var add_row = _add_row()
+	var option = _option_control(available_ids[0], available_ids, func(_value: String) -> void:
+		return
+	)
+	option.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	add_row.add_child(option)
+	add_row.add_child(_button("Add Animation", func() -> void:
+		var animation_id := String(option.get_item_metadata(option.selected))
+		if not animation_ids.has(animation_id):
+			animation_ids.append(animation_id)
+			item["animationIds"] = animation_ids
+			_mark_changed("Linked wardrobe animation.", true, true)
+		else:
+			_set_status("Animation is already linked.")
+	))
+
+
+func _remove_wardrobe_animation_link(item: Dictionary, animation_id: String) -> void:
+	var animation_ids: Array = item.get("animationIds", []) if item.get("animationIds", []) is Array else []
+	animation_ids.erase(animation_id)
+	if animation_ids.is_empty():
+		item.erase("animationIds")
+	else:
+		item["animationIds"] = animation_ids
+	_mark_changed("Removed wardrobe animation link.", true, true)
 
 
 func _build_visual_form() -> void:
@@ -800,7 +872,9 @@ func _build_pose_form() -> void:
 		return
 	_add_title("Pose")
 	_add_line_edit("ID", String(pose.get("id", "")), func(value: String) -> void:
-		_apply_record_id_edit(pose, _draft.poses, value, "pose")
+		_apply_record_id_edit(pose, _draft.poses, value, "pose", func(old_id: String, new_id: String) -> void:
+			Models.rename_pose_references(_draft.animations, old_id, new_id)
+		)
 	, not _is_creation_id_editable(_section, "record", String(pose.get("id", ""))))
 	_add_line_edit("Name", String(pose.get("name", "")), func(value: String) -> void:
 		pose["name"] = value
@@ -930,6 +1004,49 @@ func _build_sprite_override_controls(pose: Dictionary) -> void:
 			)
 
 
+func _build_animation_form() -> void:
+	var animation = _selected_record()
+	if animation.is_empty():
+		_add_note("No animation selected.")
+		return
+	_add_title("Animation")
+	_add_line_edit("ID", String(animation.get("id", "")), func(value: String) -> void:
+		_apply_record_id_edit(animation, _draft.animations, value, "animation")
+	, not _is_creation_id_editable(_section, "record", String(animation.get("id", ""))))
+	_add_line_edit("Name", String(animation.get("name", "")), func(value: String) -> void:
+		animation["name"] = value
+		_update_record_list_labels()
+		_mark_changed("Updated animation name.")
+	)
+	_add_number("Frame Count", float(animation.get("frameCount", 48)), 1.0, 2000.0, 1.0, func(value: float) -> void:
+		animation["frameCount"] = int(value)
+		_clamp_animation_keyframes(animation)
+		_animation_frame = clampf(_animation_frame, 0.0, float(animation["frameCount"]) - 1.0)
+		_mark_changed("Updated animation frame count.", false, true)
+	)
+	_add_number("FPS", float(animation.get("fps", 24.0)), 1.0, 120.0, 1.0, func(value: float) -> void:
+		animation["fps"] = value
+		_mark_changed("Updated animation FPS.", false, true)
+	)
+	_add_check_box("Loop", bool(animation.get("loop", true)), func(value: bool) -> void:
+		animation["loop"] = value
+		_mark_changed("Updated animation loop mode.")
+	)
+	_add_check_box("Visible In Player List", bool(animation.get("visibleInPlayer", true)), func(value: bool) -> void:
+		animation["visibleInPlayer"] = value
+		_mark_changed("Updated animation visibility.")
+	)
+	_add_title("Timeline")
+	var timeline = AnimationTimelineEditorScene.instantiate()
+	timeline.frame_changed.connect(_on_animation_timeline_frame_changed)
+	timeline.set_keyframe_requested.connect(_on_animation_set_keyframe_requested)
+	timeline.create_pose_requested.connect(_on_animation_create_pose_requested)
+	timeline.delete_keyframe_requested.connect(_on_animation_delete_keyframe_requested)
+	_form_content.add_child(timeline)
+	timeline.configure(animation, _draft.poses, _animation_frame)
+	_refresh_animation_preview(animation)
+
+
 func _add_transform_editor(section_title: String, transform: Dictionary, keys: Array, ranges: Dictionary) -> void:
 	_add_title(section_title)
 	for key in keys:
@@ -1055,6 +1172,19 @@ func _refresh_pose_preview(pose: Dictionary) -> void:
 	_preview_status.text = "Pose preview: click handles to select parts; drag hands or feet for IK posing."
 
 
+func _refresh_animation_preview(animation: Dictionary) -> void:
+	if texture_cache == null:
+		return
+	_preview.visible = true
+	_pose_canvas.visible = false
+	var draft_repo = _draft.repository_clone()
+	var outfit = OutfitStateScript.new(draft_repo.starting_outfit_snapshot())
+	outfit.equipped_item_ids.clear()
+	var sampled_pose = AnimationSamplerScript.sample_at_frame(draft_repo, animation, _animation_frame)
+	_preview.texture = texture_cache.texture_from_svg(DollSvgBuilder.build_svg(draft_repo, outfit, {"poseOverride": sampled_pose}), 0.18)
+	_preview_status.text = "Animation preview at frame %d." % roundi(_animation_frame)
+
+
 func _on_validate_pressed() -> void:
 	var result = _draft.validate()
 	_report_result("Content is valid.", result)
@@ -1082,6 +1212,7 @@ func _on_revert_pressed() -> void:
 	_selected_piece_index = 0
 	_selected_lattice_id = ""
 	_selected_svg_variation_id = ""
+	_animation_frame = 0.0
 	_refresh_all()
 	_set_status("Reverted draft changes.")
 
@@ -1222,6 +1353,49 @@ func _on_pose_canvas_edit_finished() -> void:
 		_render_form()
 
 
+func _on_animation_timeline_frame_changed(frame: float) -> void:
+	if _section != SECTION_ANIMATIONS:
+		return
+	_animation_frame = frame
+	_refresh_animation_preview(_selected_record())
+
+
+func _on_animation_set_keyframe_requested(frame: int, pose_id: String) -> void:
+	var animation = _selected_record()
+	if animation.is_empty():
+		return
+	_set_animation_keyframe(animation, frame, pose_id)
+	_mark_changed("Set animation keyframe.", false, true)
+
+
+func _on_animation_create_pose_requested(frame: int) -> void:
+	var animation = _selected_record()
+	if animation.is_empty():
+		return
+	var default_id := Models.unique_id("%s-frame-%d" % [String(animation.get("id", "animation")), frame], _draft.poses)
+	_request_duplicate_id(default_id, _draft.poses, "Create Pose Keyframe", func(next_id: String) -> void:
+		_create_pose_from_animation_frame(animation, frame, next_id)
+	)
+	_create_id_prompt.text = "Enter the ID for the pose created at frame %d." % frame
+
+
+func _on_animation_delete_keyframe_requested(frame: int) -> void:
+	var animation = _selected_record()
+	if animation.is_empty():
+		return
+	var keyframes: Array = animation.get("keyframes", []) if animation.get("keyframes", []) is Array else []
+	if keyframes.size() <= 1:
+		_set_status("Animation must keep at least one keyframe.")
+		return
+	for index in range(keyframes.size() - 1, -1, -1):
+		var keyframe = keyframes[index]
+		if keyframe is Dictionary and int(keyframe.get("frame", -1)) == frame:
+			keyframes.remove_at(index)
+			_mark_changed("Deleted animation keyframe.", false, true)
+			return
+	_set_status("No keyframe exists at frame %d." % frame)
+
+
 func _report_result(success_message: String, result: Dictionary) -> void:
 	if result.get("ok", false):
 		_set_status(success_message)
@@ -1253,6 +1427,8 @@ func _refresh_current_preview_only() -> void:
 			_refresh_body_preview()
 		SECTION_POSES:
 			_refresh_pose_preview(_selected_record())
+		SECTION_ANIMATIONS:
+			_refresh_animation_preview(_selected_record())
 
 
 func _sync_body_rig_zoom_slider(value: float) -> void:
@@ -1439,6 +1615,8 @@ func _records_for_section() -> Array:
 			return _draft.equipment_assets
 		SECTION_POSES:
 			return _draft.poses
+		SECTION_ANIMATIONS:
+			return _draft.animations
 	return []
 
 
@@ -1446,6 +1624,57 @@ func _selected_record() -> Dictionary:
 	if _section == SECTION_BODY_RIG:
 		return Models.record_by_id(_parts_for_selected_variant(), _selected_id)
 	return Models.record_by_id(_records_for_section(), _selected_id)
+
+
+func _set_animation_keyframe(animation: Dictionary, frame: int, pose_id: String) -> void:
+	var frame_count: int = maxi(1, int(animation.get("frameCount", 1)))
+	var clamped_frame := clampi(frame, 0, frame_count - 1)
+	if not animation.has("keyframes") or not (animation["keyframes"] is Array):
+		animation["keyframes"] = []
+	var keyframes: Array = animation["keyframes"]
+	for keyframe in keyframes:
+		if keyframe is Dictionary and int(keyframe.get("frame", -1)) == clamped_frame:
+			keyframe["poseId"] = pose_id
+			_sort_animation_keyframes(animation)
+			return
+	keyframes.append({"frame": clamped_frame, "poseId": pose_id})
+	_sort_animation_keyframes(animation)
+
+
+func _create_pose_from_animation_frame(animation: Dictionary, frame: int, pose_id: String) -> void:
+	var draft_repo = _draft.repository_clone()
+	var sampled = AnimationSamplerScript.sample_at_frame(draft_repo, animation, float(frame))
+	var pose := {
+		"id": pose_id,
+		"name": "%s Frame %d" % [String(animation.get("name", "Animation")), frame],
+		"parts": sampled.get("parts", {}).duplicate(true),
+		"sprites": sampled.get("sprites", {}).duplicate(true),
+	}
+	_draft.poses.append(pose)
+	_set_animation_keyframe(animation, frame, pose_id)
+	_mark_changed("Created pose and linked keyframe.", true, true)
+
+
+func _clamp_animation_keyframes(animation: Dictionary) -> void:
+	var frame_count: int = maxi(1, int(animation.get("frameCount", 1)))
+	if not animation.has("keyframes") or not (animation["keyframes"] is Array):
+		animation["keyframes"] = []
+	var keyframes: Array = animation["keyframes"]
+	for index in range(keyframes.size() - 1, -1, -1):
+		var keyframe = keyframes[index]
+		if not (keyframe is Dictionary) or int(keyframe.get("frame", -1)) >= frame_count:
+			keyframes.remove_at(index)
+	if keyframes.is_empty():
+		keyframes.append({"frame": 0, "poseId": String(_draft.poses[0].get("id", "idle")) if _draft.poses.size() > 0 else "idle"})
+	_sort_animation_keyframes(animation)
+
+
+func _sort_animation_keyframes(animation: Dictionary) -> void:
+	if not (animation.get("keyframes", []) is Array):
+		return
+	animation["keyframes"].sort_custom(func(a: Dictionary, b: Dictionary) -> bool:
+		return int(a.get("frame", 0)) < int(b.get("frame", 0))
+	)
 
 
 func _parts_for_selected_variant() -> Array:

@@ -80,6 +80,19 @@ static func create_pose(existing: Array) -> Dictionary:
 	return {"id": id, "name": "New Pose", "parts": {}, "sprites": {}}
 
 
+static func create_animation(existing: Array) -> Dictionary:
+	var id = unique_id("new-animation", existing)
+	return {
+		"id": id,
+		"name": "New Animation",
+		"frameCount": 48,
+		"fps": 24.0,
+		"loop": true,
+		"visibleInPlayer": true,
+		"keyframes": [{"frame": 0, "poseId": "idle"}],
+	}
+
+
 static func create_lattice_variation(part: Dictionary, id: String = "") -> Dictionary:
 	var next_id = id if id != "" else unique_id("customLattice", _variation_id_records(part))
 	var bounds = bounds_for_markup(String(part.get("svgMarkup", "")))
@@ -147,6 +160,15 @@ static func rename_body_part_references(draft: Variant, old_id: String, new_id: 
 		if pose.get("sprites", {}).has(old_id):
 			pose["sprites"][new_id] = pose["sprites"][old_id]
 			pose["sprites"].erase(old_id)
+
+
+static func rename_pose_references(animations: Array, old_id: String, new_id: String) -> void:
+	if old_id == "" or old_id == new_id:
+		return
+	for animation in animations:
+		for keyframe in animation.get("keyframes", []):
+			if keyframe is Dictionary and String(keyframe.get("poseId", "")) == old_id:
+				keyframe["poseId"] = new_id
 
 
 static func sync_wardrobe_pieces_from_visual(item: Dictionary, visual: Dictionary) -> void:

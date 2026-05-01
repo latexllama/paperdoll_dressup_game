@@ -24,6 +24,7 @@ WARDROBE_ITEM_KEYS = (
     "color",
     "accentColor",
     "pieces",
+    "animationIds",
 )
 HAIR_COLOR_FILLS = {
     "#183f7b": "var(--doll-hair-shadow)",
@@ -338,11 +339,13 @@ def validate_outputs(outputs: dict[str, Any]) -> list[str]:
     visuals = outputs["equipment_visuals.json"]
     assets = outputs["equipment_assets.json"]
     poses = outputs["poses.json"]
+    animations = outputs["animations.json"]
     body_rig = outputs["body_rig.json"]
     asset_ids = {asset.get("id") for asset in assets}
     visual_ids = {visual.get("id") for visual in visuals}
     wardrobe_ids = {item.get("id") for item in wardrobe}
     pose_ids = {pose.get("id") for pose in poses}
+    animation_ids = {animation.get("id") for animation in animations}
     rig_targets = set(BASE_RIG_TARGETS) | {
         part.get("id")
         for variant_data in body_rig.values()
@@ -354,6 +357,7 @@ def validate_outputs(outputs: dict[str, Any]) -> list[str]:
         "equipment_visuals": visuals,
         "equipment_assets": assets,
         "poses": poses,
+        "animations": animations,
     }.items():
         ids = [record.get("id") for record in records]
         if len(ids) != len(set(ids)):
@@ -365,6 +369,15 @@ def validate_outputs(outputs: dict[str, Any]) -> list[str]:
             errors.append(f"wardrobe item {item.get('id')} has unknown fields: {', '.join(unknown)}")
         if item.get("visualId") not in visual_ids:
             errors.append(f"wardrobe item {item.get('id')} references missing visual {item.get('visualId')}")
+        for animation_id in item.get("animationIds", []):
+            if animation_id not in animation_ids:
+                errors.append(f"wardrobe item {item.get('id')} references missing animation {animation_id}")
+    for animation in animations:
+        if not animation.get("keyframes"):
+            errors.append(f"animation {animation.get('id')} has no keyframes")
+        for keyframe in animation.get("keyframes", []):
+            if keyframe.get("poseId") not in pose_ids:
+                errors.append(f"animation {animation.get('id')} references missing pose {keyframe.get('poseId')}")
     for visual in visuals:
         for index, piece in enumerate(visual.get("pieces", [])):
             if piece.get("assetId") not in asset_ids:
@@ -464,6 +477,17 @@ def import_content(source_root: Path, project_root: Path, dry_run: bool = False)
         "equipment_visuals.json": json.loads(read_text(source_content_path(source_root, "equipmentVisuals"))),
         "wardrobe.json": wardrobe_to_dressup_records(wardrobe_payload),
         "poses.json": json.loads(read_text(source_content_path(source_root, "poses"))),
+        "animations.json": [
+            {
+                "id": "idle",
+                "name": "Idle",
+                "frameCount": 48,
+                "fps": 24.0,
+                "loop": True,
+                "visibleInPlayer": True,
+                "keyframes": [{"frame": 0, "poseId": "idle"}, {"frame": 47, "poseId": "idle"}],
+            }
+        ],
         "sample_meta.json": sample_meta,
         "starting_outfit.json": starting_outfit,
     }
@@ -478,6 +502,7 @@ def import_content(source_root: Path, project_root: Path, dry_run: bool = False)
         "equipmentAssets": len(equipment_assets),
         "equipmentVisuals": len(outputs["equipment_visuals.json"]),
         "poses": len(outputs["poses.json"]),
+        "animations": len(outputs["animations.json"]),
         "unknownFieldCounts": {
             "wardrobe": count_unknown_wardrobe_fields(wardrobe_payload),
         },

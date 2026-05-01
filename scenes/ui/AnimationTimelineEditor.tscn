@@ -1,0 +1,88 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/ui/AnimationTimelineEditor.gd" id="1_script"]
+
+[node name="AnimationTimelineEditor" type="VBoxContainer"]
+custom_minimum_size = Vector2(0, 220)
+theme_override_constants/separation = 8
+script = ExtResource("1_script")
+
+[node name="PlaybackRow" type="HBoxContainer" parent="."]
+layout_mode = 2
+theme_override_constants/separation = 6
+
+[node name="FirstFrameButton" type="Button" parent="PlaybackRow"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "|<"
+
+[node name="PreviousFrameButton" type="Button" parent="PlaybackRow"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "<"
+
+[node name="PlayPauseButton" type="Button" parent="PlaybackRow"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Play"
+
+[node name="NextFrameButton" type="Button" parent="PlaybackRow"]
+unique_name_in_owner = true
+layout_mode = 2
+text = ">"
+
+[node name="LastFrameButton" type="Button" parent="PlaybackRow"]
+unique_name_in_owner = true
+layout_mode = 2
+text = ">|"
+
+[node name="FrameRow" type="HBoxContainer" parent="."]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="FrameLabel" type="Label" parent="FrameRow"]
+layout_mode = 2
+text = "Frame"
+
+[node name="FrameSpin" type="SpinBox" parent="FrameRow"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(96, 0)
+layout_mode = 2
+step = 1.0
+
+[node name="FrameSlider" type="HSlider" parent="FrameRow"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+step = 1.0
+
+[node name="KeyframeEditRow" type="HBoxContainer" parent="."]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="PoseOption" type="OptionButton" parent="KeyframeEditRow"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="SetKeyframeButton" type="Button" parent="KeyframeEditRow"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Set Keyframe"
+
+[node name="CreatePoseButton" type="Button" parent="KeyframeEditRow"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Create Pose"
+
+[node name="DeleteKeyframeButton" type="Button" parent="KeyframeEditRow"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Delete Keyframe"
+
+[node name="KeyframeList" type="ItemList" parent="."]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 92)
+layout_mode = 2
+size_flags_vertical = 3
+allow_reselect = true

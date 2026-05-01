@@ -23,6 +23,7 @@ func test_imported_content_loads_and_resolves_references() -> void:
 	assert_eq(repo.equipment_visuals.size(), 10)
 	assert_eq(repo.equipment_assets.size(), 23)
 	assert_eq(repo.poses.size(), 4)
+	assert_gt(repo.animations.size(), 0)
 	for variant in ["female", "male"]:
 		for part_id in ContentRepository.REQUIRED_BODY_PART_IDS:
 			assert_false(repo.body_part(variant, part_id).is_empty(), "%s missing %s body rig part" % [variant, part_id])

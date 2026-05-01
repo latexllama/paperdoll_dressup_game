@@ -4,7 +4,7 @@ extends RefCounted
 const LAYERS := ["back", "upperLimbs", "body", "legs", "head", "frontLimbs", "front"]
 const WARDROBE_SLOTS := ["top", "bottom", "shoes", "hairAccessory", "faceAccessory", "earAccessory", "horns", "tail"]
 const COLOR_PATTERN := "^#[0-9a-fA-F]{6}$"
-const WARDROBE_KEYS := ["id", "name", "slot", "description", "visualId", "color", "accentColor", "pieces"]
+const WARDROBE_KEYS := ["id", "name", "slot", "description", "visualId", "color", "accentColor", "pieces", "animationIds"]
 const WARDROBE_PIECE_KEYS := ["target", "colorGroup"]
 const VISUAL_KEYS := ["id", "name", "slot", "pieces"]
 const VISUAL_PIECE_KEYS := ["target", "layer", "assetId", "colorGroup", "hideBodyPart", "transform"]
@@ -15,6 +15,8 @@ const ASSET_VARIANT_KEYS := ["viewBox", "svgMarkup"]
 const BODY_VARIANT_KEYS := ["parts"]
 const BODY_PART_KEYS := ["id", "layer", "parentId", "pivot", "svgMarkup", "variations", "latticeVariations"]
 const POSE_KEYS := ["id", "name", "parts", "sprites"]
+const ANIMATION_KEYS := ["id", "name", "frameCount", "fps", "loop", "visibleInPlayer", "keyframes"]
+const ANIMATION_KEYFRAME_KEYS := ["frame", "poseId"]
 const STARTING_OUTFIT_KEYS := ["id", "name", "variant", "poseId", "skinTone", "skinLine", "hairColor", "eyeColor", "equippedItemIds"]
 const HAND_SPRITES := ["", "relaxed", "open", "fist", "point"]
 const FOOT_SPRITES := ["", "front", "inward", "outward"]
@@ -35,11 +37,13 @@ static func validate_repository(repo: ContentRepository) -> Dictionary:
 	errors.append_array(_validate_unique_ids(repo.equipment_visuals, "equipment_visuals"))
 	errors.append_array(_validate_unique_ids(repo.equipment_assets, "equipment_assets"))
 	errors.append_array(_validate_unique_ids(repo.poses, "poses"))
+	errors.append_array(_validate_unique_ids(repo.animations, "animations"))
 	errors.append_array(_validate_body_rig(repo.body_rig))
 	errors.append_array(_validate_equipment_assets(repo.equipment_assets))
 	errors.append_array(_validate_equipment_visuals(repo.equipment_visuals, repo))
 	errors.append_array(_validate_wardrobe(repo.wardrobe, repo))
 	errors.append_array(_validate_poses(repo.poses, repo))
+	errors.append_array(_validate_animations(repo.animations, repo))
 	errors.append_array(_validate_starting_outfit(repo.starting_outfit, repo, "Starting outfit"))
 	return {"ok": errors.is_empty(), "errors": errors}
 
@@ -51,6 +55,7 @@ static func validate_collection(repo: ContentRepository, collection_name: String
 	clone.equipment_visuals = repo.equipment_visuals.duplicate(true)
 	clone.wardrobe = repo.wardrobe.duplicate(true)
 	clone.poses = repo.poses.duplicate(true)
+	clone.animations = repo.animations.duplicate(true)
 	clone.sample_meta = repo.sample_meta.duplicate(true)
 	clone.starting_outfit = repo.starting_outfit.duplicate(true)
 	clone.set_collection(collection_name, value)
@@ -280,6 +285,15 @@ static func _validate_wardrobe(wardrobe: Array, repo: ContentRepository) -> Arra
 					errors.append_array(_unknown_keys(piece, WARDROBE_PIECE_KEYS, "%s piece %d" % [label, index]))
 					errors.append_array(_require_string_fields(piece, ["target"], "%s piece %d" % [label, index]))
 					errors.append_array(_optional_string_fields(piece, ["colorGroup"], "%s piece %d" % [label, index]))
+		if item.has("animationIds"):
+			if not (item["animationIds"] is Array):
+				errors.append("%s animationIds must be an array" % label)
+			else:
+				for animation_id in item["animationIds"]:
+					if not (animation_id is String):
+						errors.append("%s animationIds must contain only strings" % label)
+					elif repo != null and not repo.has_animation(String(animation_id)):
+						errors.append("%s references missing animation \"%s\"" % [label, String(animation_id)])
 	return errors
 
 
@@ -325,6 +339,52 @@ static func _validate_poses(poses: Array, repo: ContentRepository) -> Array[Stri
 				var variation_ids := _variation_ids_for_part(repo, sprite_part)
 				if variation_ids.is_empty() or not variation_ids.has(sprite_value):
 					errors.append("%s sprite override \"%s\" references missing variation \"%s\"" % [label, part_id, sprite_value])
+	return errors
+
+
+static func _validate_animations(animations: Array, repo: ContentRepository) -> Array[String]:
+	var errors: Array[String] = []
+	for animation in animations:
+		if not (animation is Dictionary):
+			errors.append("Animation record must be an object")
+			continue
+		var label = "Animation \"%s\"" % String(animation.get("id", ""))
+		errors.append_array(_unknown_keys(animation, ANIMATION_KEYS, label))
+		errors.append_array(_require_string_fields(animation, ["id", "name"], label))
+		errors.append_array(_require_bool_fields(animation, ["loop", "visibleInPlayer"], label))
+		var frame_count = animation.get("frameCount")
+		if not (frame_count is int) or int(frame_count) <= 0:
+			errors.append("%s frameCount must be a positive integer" % label)
+		var fps = animation.get("fps")
+		if not _finite_number(fps) or float(fps) <= 0.0:
+			errors.append("%s fps must be a positive number" % label)
+		if not (animation.get("keyframes", []) is Array):
+			errors.append("%s keyframes must be an array" % label)
+			continue
+		var keyframes: Array = animation.get("keyframes", [])
+		if keyframes.is_empty():
+			errors.append("%s must have at least one keyframe" % label)
+		var seen_frames := {}
+		for index in range(keyframes.size()):
+			var keyframe = keyframes[index]
+			var keyframe_label = "%s keyframe %d" % [label, index]
+			if not (keyframe is Dictionary):
+				errors.append("%s must be an object" % keyframe_label)
+				continue
+			errors.append_array(_unknown_keys(keyframe, ANIMATION_KEYFRAME_KEYS, keyframe_label))
+			errors.append_array(_require_string_fields(keyframe, ["poseId"], keyframe_label))
+			var frame = keyframe.get("frame")
+			if not (frame is int):
+				errors.append("%s frame must be an integer" % keyframe_label)
+			else:
+				if seen_frames.has(int(frame)):
+					errors.append("%s duplicates frame %d" % [label, int(frame)])
+				seen_frames[int(frame)] = true
+				if frame_count is int and (int(frame) < 0 or int(frame) >= int(frame_count)):
+					errors.append("%s frame must be between 0 and %d" % [keyframe_label, int(frame_count) - 1])
+			var pose_id := String(keyframe.get("poseId", ""))
+			if repo != null and pose_id != "" and not repo.has_pose(pose_id):
+				errors.append("%s references missing pose \"%s\"" % [keyframe_label, pose_id])
 	return errors
 
 

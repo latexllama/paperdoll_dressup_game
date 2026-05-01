@@ -1,0 +1,20 @@
+[
+  {
+    "id": "idle",
+    "name": "Idle",
+    "frameCount": 48,
+    "fps": 24.0,
+    "loop": true,
+    "visibleInPlayer": true,
+    "keyframes": [
+      {
+        "frame": 0,
+        "poseId": "idle"
+      },
+      {
+        "frame": 47,
+        "poseId": "idle"
+      }
+    ]
+  }
+]

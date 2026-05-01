@@ -44,7 +44,7 @@ func test_save_all_uses_dependency_order() -> void:
 	var result = draft.save_all(repo)
 
 	assert_true(result.get("ok", false), "; ".join(result.get("errors", [])))
-	assert_eq(repo.saved_order, ["equipment_assets", "equipment_visuals", "wardrobe", "body_rig", "poses"])
+	assert_eq(repo.saved_order, ["equipment_assets", "equipment_visuals", "body_rig", "poses", "animations", "wardrobe"])
 	assert_false(draft.is_dirty())
 
 
@@ -111,6 +111,7 @@ func _valid_repo() -> FakeRepository:
 		{"id": "item", "name": "Item", "slot": "top", "visualId": "visual", "color": "#ffffff"},
 	]
 	repo.poses = [{"id": "idle", "name": "Idle", "parts": {"body": {"rotate": 0.0}}, "sprites": {}}]
+	repo.animations = [{"id": "idle", "name": "Idle", "frameCount": 48, "fps": 24.0, "loop": true, "visibleInPlayer": true, "keyframes": [{"frame": 0, "poseId": "idle"}]}]
 	repo.sample_meta = {"variants": {"female": {"baseScale": 1.0}, "male": {"baseScale": 1.0}}}
 	repo.starting_outfit = {}
 	repo.set_collection("equipment_assets", repo.equipment_assets)

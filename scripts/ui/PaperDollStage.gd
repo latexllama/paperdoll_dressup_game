@@ -12,6 +12,7 @@ var outfit: Variant
 var texture_cache: Variant
 
 var _pending_drag_item_id := ""
+var _pose_override: Dictionary = {}
 
 @onready var _doll_texture: TextureRect = %DollTexture
 @onready var _hint_label: Label = %StageHint
@@ -29,6 +30,11 @@ func set_outfit(next_outfit: Variant) -> void:
 	refresh()
 
 
+func set_pose_override(pose: Dictionary) -> void:
+	_pose_override = pose.duplicate(true)
+	refresh()
+
+
 func refresh() -> void:
 	if not is_inside_tree() or repo == null or outfit == null or texture_cache == null:
 		return
@@ -36,7 +42,10 @@ func refresh() -> void:
 	if available.x <= 0.0 or available.y <= 0.0:
 		available = size
 	var render_scale = minf(available.x / DollSvgBuilder.ACTOR_WIDTH, available.y / DollSvgBuilder.ACTOR_HEIGHT)
-	var svg = DollSvgBuilder.build_svg(repo, outfit)
+	var options := {}
+	if not _pose_override.is_empty():
+		options["poseOverride"] = _pose_override
+	var svg = DollSvgBuilder.build_svg(repo, outfit, options)
 	_doll_texture.texture = texture_cache.texture_from_svg(svg, render_scale)
 	_hint_label.visible = outfit.equipped_item_ids.is_empty()
 
@@ -76,7 +85,10 @@ func _get_drag_data(at_position: Vector2) -> Variant:
 	var actor_position = _actor_position_from_stage_position(at_position)
 	if not bool(actor_position.get("ok", false)):
 		return null
-	var item_id = DollSvgBuilder.top_visible_equipped_item_id_at(repo, outfit, actor_position["position"])
+	var options := {}
+	if not _pose_override.is_empty():
+		options["poseOverride"] = _pose_override
+	var item_id = DollSvgBuilder.top_visible_equipped_item_id_at(repo, outfit, actor_position["position"], options)
 	if item_id == "":
 		return null
 	_pending_drag_item_id = item_id

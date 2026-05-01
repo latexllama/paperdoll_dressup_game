@@ -5,10 +5,12 @@ const OutfitStateScript := preload("res://scripts/game/OutfitState.gd")
 const OutfitHistoryScript := preload("res://scripts/game/OutfitHistory.gd")
 const OutfitPersistenceScript := preload("res://scripts/game/OutfitPersistence.gd")
 const SvgTextureCacheScript := preload("res://scripts/doll/SvgTextureCache.gd")
+const AnimationPlaybackControllerScript := preload("res://scripts/doll/AnimationPlaybackController.gd")
 
 var _repo := ContentRepository.new()
 var _texture_cache = SvgTextureCacheScript.new()
 var _history = OutfitHistoryScript.new()
+var _animation_controller = AnimationPlaybackControllerScript.new()
 var _outfit = OutfitStateScript.new()
 var _drag_session: Dictionary = {}
 var _pending_overwrite_save_name := ""
@@ -24,6 +26,8 @@ var _pending_overwrite_save_name := ""
 @onready var _load_dialog: AcceptDialog = %LoadDialog
 @onready var _outfit_list: ItemList = %OutfitList
 @onready var _delete_outfit_button: Button = %DeleteOutfitButton
+@onready var _animation_dialog: AcceptDialog = %AnimationDialog
+@onready var _animation_list: ItemList = %AnimationList
 @onready var _settings_dialog: AcceptDialog = %SettingsDialog
 @onready var _variant_option: OptionButton = %VariantOption
 @onready var _pose_option: OptionButton = %PoseOption
@@ -43,6 +47,7 @@ func _ready() -> void:
 		initial_status = "Content loaded with generated body-rig repair defaults. Open Dev Editor > Body Rig to review and save them."
 	_outfit = OutfitStateScript.new(_repo.starting_outfit_snapshot())
 	_history.clear()
+	_animation_controller.configure(_repo)
 	_stage.configure(_repo, _outfit, _texture_cache)
 	_wardrobe_panel.configure(_repo, _texture_cache)
 	_dev_editor.configure(_repo, _texture_cache)
@@ -64,6 +69,7 @@ func _connect_signals() -> void:
 	_redo_button.pressed.connect(_on_redo_pressed)
 	%SaveButton.pressed.connect(_on_save_pressed)
 	%LoadButton.pressed.connect(_on_load_pressed)
+	%AnimationButton.pressed.connect(_on_animation_pressed)
 	%SettingsButton.pressed.connect(_on_settings_pressed)
 	%DevEditorButton.pressed.connect(_on_dev_editor_pressed)
 	%ResetButton.pressed.connect(_on_reset_pressed)
@@ -75,6 +81,8 @@ func _connect_signals() -> void:
 	_load_dialog.confirmed.connect(_on_load_confirmed)
 	_outfit_list.item_selected.connect(_on_outfit_list_selected)
 	_delete_outfit_button.pressed.connect(_on_delete_outfit_pressed)
+	_animation_dialog.confirmed.connect(_on_animation_confirmed)
+	_animation_list.item_activated.connect(_on_animation_list_activated)
 	_settings_dialog.confirmed.connect(_on_settings_confirmed)
 	_reset_appearance_button.pressed.connect(_on_reset_appearance_pressed)
 	_dev_editor.content_saved.connect(_on_dev_content_saved)
@@ -82,10 +90,17 @@ func _connect_signals() -> void:
 
 func _refresh_all() -> void:
 	_stage.set_outfit(_outfit)
+	_animation_controller.sync_item_animations(_outfit.equipped_item_ids)
+	_stage.set_pose_override(_animation_controller.current_pose())
 	_wardrobe_panel.set_available_items(_repo.wardrobe_available_for(_outfit.equipped_item_ids))
 	_undo_button.disabled = not _history.can_undo()
 	_redo_button.disabled = not _history.can_redo()
 	_set_status("Equipped: %d" % _outfit.equipped_item_ids.size())
+
+
+func _process(delta: float) -> void:
+	if _animation_controller.update(delta):
+		_stage.set_pose_override(_animation_controller.current_pose())
 
 
 func _on_doll_drop_requested(data: Dictionary) -> void:
@@ -270,6 +285,40 @@ func _on_delete_outfit_pressed() -> void:
 	_set_status("Deleted outfit: %s" % outfit_name)
 
 
+func _on_animation_pressed() -> void:
+	_animation_list.clear()
+	for animation in _animation_controller.visible_player_animations():
+		_animation_list.add_item("%s  %s" % [String(animation.get("id", "")), String(animation.get("name", ""))])
+		_animation_list.set_item_metadata(_animation_list.item_count - 1, String(animation.get("id", "")))
+	if _animation_list.item_count > 0:
+		_animation_list.select(0)
+	else:
+		_set_status("No visible animations are authored.")
+	_animation_dialog.popup_centered(Vector2i(440, 360))
+
+
+func _on_animation_confirmed() -> void:
+	var selected = _animation_list.get_selected_items()
+	if selected.is_empty():
+		_set_status("No animation selected.")
+		return
+	_play_player_animation(String(_animation_list.get_item_metadata(selected[0])))
+
+
+func _on_animation_list_activated(index: int) -> void:
+	_play_player_animation(String(_animation_list.get_item_metadata(index)))
+	_animation_dialog.hide()
+
+
+func _play_player_animation(animation_id: String) -> void:
+	var result = _animation_controller.play_player_animation(animation_id)
+	if not result.get("ok", false):
+		_set_status("Animation failed: %s" % "; ".join(result.get("errors", [])))
+		return
+	_stage.set_pose_override(_animation_controller.current_pose())
+	_set_status("Playing animation: %s" % animation_id)
+
+
 func _on_settings_pressed() -> void:
 	_select_option_by_text(_variant_option, _outfit.variant)
 	_select_option_by_text(_pose_option, _outfit.pose_id)
@@ -310,6 +359,7 @@ func _on_dev_content_saved() -> void:
 		_set_status("Reloaded content with errors: %s" % "; ".join(validation.get("errors", [])))
 	else:
 		_texture_cache.clear()
+		_animation_controller.configure(_repo)
 		_populate_settings_options()
 		_refresh_all()
 		_set_status("Content saved and reloaded.")

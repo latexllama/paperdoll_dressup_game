@@ -79,6 +79,7 @@ var equipment_assets: Array = []
 var equipment_visuals: Array = []
 var wardrobe: Array = []
 var poses: Array = []
+var animations: Array = []
 var sample_meta: Dictionary = {}
 var starting_outfit: Dictionary = {}
 var last_load_errors: Array[String] = []
@@ -88,6 +89,7 @@ var _asset_by_id: Dictionary = {}
 var _visual_by_id: Dictionary = {}
 var _wardrobe_by_id: Dictionary = {}
 var _pose_by_id: Dictionary = {}
+var _animation_by_id: Dictionary = {}
 var _rig_part_by_variant: Dictionary = {}
 
 
@@ -99,6 +101,7 @@ func load_all() -> Dictionary:
 	equipment_visuals = _load_json("equipment_visuals.json", [], TYPE_ARRAY)
 	wardrobe = _load_json("wardrobe.json", [], TYPE_ARRAY)
 	poses = _load_json("poses.json", [], TYPE_ARRAY)
+	animations = _load_json("animations.json", [], TYPE_ARRAY)
 	sample_meta = _load_json("sample_meta.json", {}, TYPE_DICTIONARY)
 	starting_outfit = _load_json("starting_outfit.json", {}, TYPE_DICTIONARY)
 	_rebuild_indexes()
@@ -162,6 +165,8 @@ func set_collection(collection_name: String, value: Variant) -> void:
 			wardrobe = value
 		"poses":
 			poses = value
+		"animations":
+			animations = value
 		"starting_outfit":
 			starting_outfit = value
 	_rebuild_indexes()
@@ -185,6 +190,14 @@ func pose(pose_id: String) -> Dictionary:
 
 func has_pose(pose_id: String) -> bool:
 	return _pose_by_id.has(pose_id)
+
+
+func animation(animation_id: String) -> Dictionary:
+	return _animation_by_id.get(animation_id, {})
+
+
+func has_animation(animation_id: String) -> bool:
+	return _animation_by_id.has(animation_id)
 
 
 func has_wardrobe_item(item_id: String) -> bool:
@@ -347,6 +360,7 @@ func _rebuild_indexes() -> void:
 	_visual_by_id = _index_by_id(equipment_visuals)
 	_wardrobe_by_id = _index_by_id(wardrobe)
 	_pose_by_id = _index_by_id(poses)
+	_animation_by_id = _index_by_id(animations)
 	_rig_part_by_variant = {}
 	for variant in body_rig.keys():
 		_rig_part_by_variant[variant] = _index_by_id(body_parts_for_variant(variant))
@@ -374,6 +388,8 @@ func _file_name_for_collection(collection_name: String) -> String:
 			return "wardrobe.json"
 		"poses":
 			return "poses.json"
+		"animations":
+			return "animations.json"
 		"starting_outfit":
 			return "starting_outfit.json"
 	return ""

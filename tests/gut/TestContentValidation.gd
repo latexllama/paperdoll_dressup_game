@@ -81,6 +81,23 @@ func test_content_validation_rejects_invalid_pose_sprite_overrides() -> void:
 	assert_string_contains("; ".join(result.get("errors", [])), "missing variation")
 
 
+func test_content_validation_rejects_invalid_animation_records_and_refs() -> void:
+	var repo = _valid_repo()
+	repo.animations.append(repo.animations[0].duplicate(true))
+	repo.animations[0]["keyframes"].append({"frame": 0, "poseId": "idle"})
+	repo.animations[0]["keyframes"].append({"frame": 99, "poseId": "missing"})
+	repo.wardrobe[0]["animationIds"] = ["missing-animation"]
+	repo._rebuild_indexes()
+
+	var result = ContentValidator.validate_repository(repo)
+
+	assert_false(result.get("ok", true))
+	assert_string_contains("; ".join(result.get("errors", [])), "duplicate id")
+	assert_string_contains("; ".join(result.get("errors", [])), "duplicates frame")
+	assert_string_contains("; ".join(result.get("errors", [])), "missing pose")
+	assert_string_contains("; ".join(result.get("errors", [])), "missing animation")
+
+
 func _valid_repo() -> ContentRepository:
 	var body_part = {
 		"id": "body",
@@ -111,6 +128,7 @@ func _valid_repo() -> ContentRepository:
 		{"id": "item", "name": "Item", "slot": "top", "visualId": "visual", "color": "#ffffff"},
 	]
 	repo.poses = [{"id": "idle", "name": "Idle", "parts": {"body": {"rotate": 0}}, "sprites": {}}]
+	repo.animations = [{"id": "idle", "name": "Idle", "frameCount": 48, "fps": 24.0, "loop": true, "visibleInPlayer": true, "keyframes": [{"frame": 0, "poseId": "idle"}]}]
 	repo.sample_meta = {"variants": {"female": {"baseScale": 1.0}, "male": {"baseScale": 1.0}}}
 	repo.starting_outfit = {}
 	repo._rebuild_indexes()
