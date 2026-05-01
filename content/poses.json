@@ -11,31 +11,32 @@
         "y": 0.0
       },
       "leftArm": {
-        "bend": 3.0
+        "bend": 3.0,
+        "rotate": -61.3941069526111
       },
       "leftForearm": {
         "bend": 2.0,
-        "rotate": 8.0
+        "rotate": -29.3495050769955
       },
       "leftShank": {
-        "rotate": 3.0
+        "rotate": -10.1482765324764
       },
       "leftThigh": {
-        "rotate": -2.0
+        "rotate": 6.78072006409327
       },
       "rightArm": {
         "bend": -3.0,
-        "rotate": -7.0
+        "rotate": 56.3282157146658
       },
       "rightForearm": {
         "bend": -2.0,
-        "rotate": -8.0
+        "rotate": 38.752456514542
       },
       "rightShank": {
-        "rotate": -3.0
+        "rotate": -0.947234096341249
       },
       "rightThigh": {
-        "rotate": 2.0
+        "rotate": -0.88960184696111
       }
     },
     "sprites": {
