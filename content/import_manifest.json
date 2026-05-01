@@ -1,0 +1,11 @@
+{
+  "sourceProject": "D:\\DEV\\GAME\\web_projects\\my_sim",
+  "bodyRigParts": {
+    "female": 25,
+    "male": 25
+  },
+  "wardrobeItems": 10,
+  "equipmentAssets": 23,
+  "equipmentVisuals": 10,
+  "poses": 4
+}

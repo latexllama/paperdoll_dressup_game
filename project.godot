@@ -11,8 +11,22 @@ config_version=5
 [application]
 
 config/name="Kisekae_dressup_game"
+run/main_scene="uid://85o8a3ptione"
 config/features=PackedStringArray("4.6", "Mobile")
 config/icon="res://icon.svg"
+
+[display]
+
+window/size/viewport_width=1920
+window/size/viewport_height=1080
+window/stretch/mode="canvas_items"
+window/size/min_width=1280
+window/size/min_height=720
+
+[editor]
+
+naming/scene_name_casing=1
+naming/script_name_casing=1
 
 [physics]
 

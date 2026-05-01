@@ -1,0 +1,223 @@
+[gd_scene load_steps=6 format=3 uid="uid://85o8a3ptione"]
+
+[ext_resource type="Script" path="res://scripts/ui/MainScene.gd" id="1_script"]
+[ext_resource type="PackedScene" path="res://scenes/ui/PaperDollStage.tscn" id="2_stage"]
+[ext_resource type="PackedScene" path="res://scenes/ui/WardrobePanel.tscn" id="3_wardrobe"]
+[ext_resource type="PackedScene" path="res://scenes/ui/DevContentEditor.tscn" id="4_editor"]
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_top"]
+bg_color = Color(0.13, 0.135, 0.145, 1)
+
+[node name="Main" type="Control" unique_id=712848753]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+script = ExtResource("1_script")
+
+[node name="Root" type="VBoxContainer" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+
+[node name="TopBar" type="PanelContainer" parent="Root"]
+custom_minimum_size = Vector2(0, 92)
+layout_mode = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_top")
+
+[node name="TopBarLayout" type="HBoxContainer" parent="Root/TopBar"]
+layout_mode = 2
+theme_override_constants/separation = 14
+
+[node name="TitleLabel" type="Label" parent="Root/TopBar/TopBarLayout"]
+custom_minimum_size = Vector2(310, 0)
+layout_mode = 2
+theme_override_colors/font_color = Color(1, 1, 1, 1)
+theme_override_font_sizes/font_size = 34
+text = "DRESS UP"
+vertical_alignment = 1
+
+[node name="SettingsButton" type="Button" parent="Root/TopBar/TopBarLayout"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(118, 54)
+layout_mode = 2
+text = "Settings"
+
+[node name="ResetButton" type="Button" parent="Root/TopBar/TopBarLayout"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(108, 54)
+layout_mode = 2
+text = "Reset"
+
+[node name="SpacerLeft" type="Control" parent="Root/TopBar/TopBarLayout"]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="UndoButton" type="Button" parent="Root/TopBar/TopBarLayout"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(110, 54)
+layout_mode = 2
+text = "Undo"
+
+[node name="RedoButton" type="Button" parent="Root/TopBar/TopBarLayout"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(110, 54)
+layout_mode = 2
+text = "Redo"
+
+[node name="SpacerRight" type="Control" parent="Root/TopBar/TopBarLayout"]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="SaveButton" type="Button" parent="Root/TopBar/TopBarLayout"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(132, 54)
+layout_mode = 2
+text = "Save Outfit"
+
+[node name="LoadButton" type="Button" parent="Root/TopBar/TopBarLayout"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(132, 54)
+layout_mode = 2
+text = "Load Outfit"
+
+[node name="DevEditorButton" type="Button" parent="Root/TopBar/TopBarLayout"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(142, 54)
+layout_mode = 2
+text = "Dev Editor"
+
+[node name="BodyRow" type="HBoxContainer" parent="Root"]
+layout_mode = 2
+size_flags_vertical = 3
+theme_override_constants/separation = 18
+
+[node name="StageMargin" type="MarginContainer" parent="Root/BodyRow"]
+custom_minimum_size = Vector2(760, 0)
+layout_mode = 2
+theme_override_constants/margin_left = 20
+theme_override_constants/margin_top = 20
+theme_override_constants/margin_bottom = 20
+
+[node name="PaperDollStage" parent="Root/BodyRow/StageMargin" instance=ExtResource("2_stage")]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_vertical = 3
+
+[node name="WardrobeMargin" type="MarginContainer" parent="Root/BodyRow"]
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+theme_override_constants/margin_top = 20
+theme_override_constants/margin_right = 20
+theme_override_constants/margin_bottom = 20
+
+[node name="WardrobePanel" parent="Root/BodyRow/WardrobeMargin" instance=ExtResource("3_wardrobe")]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+
+[node name="StatusLabel" type="Label" parent="Root"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 28)
+layout_mode = 2
+text = "Loading"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="SaveDialog" type="AcceptDialog" parent="."]
+unique_name_in_owner = true
+title = "Save Outfit"
+visible = false
+
+[node name="SaveDialogMargin" type="MarginContainer" parent="SaveDialog"]
+offset_right = 360.0
+offset_bottom = 86.0
+theme_override_constants/margin_left = 12
+theme_override_constants/margin_top = 12
+theme_override_constants/margin_right = 12
+theme_override_constants/margin_bottom = 12
+
+[node name="SaveDialogLayout" type="VBoxContainer" parent="SaveDialog/SaveDialogMargin"]
+layout_mode = 2
+
+[node name="SavePrompt" type="Label" parent="SaveDialog/SaveDialogMargin/SaveDialogLayout"]
+layout_mode = 2
+text = "Outfit name"
+
+[node name="SaveNameEdit" type="LineEdit" parent="SaveDialog/SaveDialogMargin/SaveDialogLayout"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "default"
+
+[node name="LoadDialog" type="AcceptDialog" parent="."]
+unique_name_in_owner = true
+title = "Load Outfit"
+visible = false
+
+[node name="OutfitList" type="ItemList" parent="LoadDialog"]
+unique_name_in_owner = true
+offset_right = 400.0
+offset_bottom = 280.0
+
+[node name="SettingsDialog" type="AcceptDialog" parent="."]
+unique_name_in_owner = true
+title = "Settings"
+visible = false
+
+[node name="SettingsMargin" type="MarginContainer" parent="SettingsDialog"]
+offset_right = 460.0
+offset_bottom = 260.0
+theme_override_constants/margin_left = 12
+theme_override_constants/margin_top = 12
+theme_override_constants/margin_right = 12
+theme_override_constants/margin_bottom = 12
+
+[node name="SettingsGrid" type="GridContainer" parent="SettingsDialog/SettingsMargin"]
+layout_mode = 2
+columns = 2
+
+[node name="VariantLabel" type="Label" parent="SettingsDialog/SettingsMargin/SettingsGrid"]
+layout_mode = 2
+text = "Variant"
+
+[node name="VariantOption" type="OptionButton" parent="SettingsDialog/SettingsMargin/SettingsGrid"]
+unique_name_in_owner = true
+layout_mode = 2
+
+[node name="PoseLabel" type="Label" parent="SettingsDialog/SettingsMargin/SettingsGrid"]
+layout_mode = 2
+text = "Pose"
+
+[node name="PoseOption" type="OptionButton" parent="SettingsDialog/SettingsMargin/SettingsGrid"]
+unique_name_in_owner = true
+layout_mode = 2
+
+[node name="SkinLabel" type="Label" parent="SettingsDialog/SettingsMargin/SettingsGrid"]
+layout_mode = 2
+text = "Skin"
+
+[node name="SkinPicker" type="ColorPickerButton" parent="SettingsDialog/SettingsMargin/SettingsGrid"]
+unique_name_in_owner = true
+layout_mode = 2
+
+[node name="HairLabel" type="Label" parent="SettingsDialog/SettingsMargin/SettingsGrid"]
+layout_mode = 2
+text = "Hair"
+
+[node name="HairPicker" type="ColorPickerButton" parent="SettingsDialog/SettingsMargin/SettingsGrid"]
+unique_name_in_owner = true
+layout_mode = 2
+
+[node name="EyeLabel" type="Label" parent="SettingsDialog/SettingsMargin/SettingsGrid"]
+layout_mode = 2
+text = "Eyes"
+
+[node name="EyePicker" type="ColorPickerButton" parent="SettingsDialog/SettingsMargin/SettingsGrid"]
+unique_name_in_owner = true
+layout_mode = 2
+
+[node name="DevContentEditor" parent="." instance=ExtResource("4_editor")]
+unique_name_in_owner = true

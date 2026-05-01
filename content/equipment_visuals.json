@@ -1,0 +1,274 @@
+[
+  {
+    "id": "plain-tee-visual",
+    "name": "Plain Tee Visual",
+    "pieces": [
+      {
+        "assetId": "shirtTorso",
+        "colorGroup": "Clothing.Top.Base",
+        "layer": "body",
+        "target": "torso",
+        "transform": {
+
+        }
+      },
+      {
+        "assetId": "shirtLeftUpperArm",
+        "colorGroup": "Clothing.Top.Sleeves",
+        "layer": "upperLimbs",
+        "target": "leftArm"
+      },
+      {
+        "assetId": "shirtRightUpperArm",
+        "colorGroup": "Clothing.Top.Sleeves",
+        "layer": "upperLimbs",
+        "target": "rightArm"
+      }
+    ],
+    "slot": "top"
+  },
+  {
+    "id": "gym-hoodie-visual",
+    "name": "Gym Hoodie Visual",
+    "pieces": [
+      {
+        "assetId": "shirtTorso",
+        "colorGroup": "Clothing.Top.Base",
+        "layer": "body",
+        "target": "torso"
+      },
+      {
+        "assetId": "shirtLeftUpperArm",
+        "colorGroup": "Clothing.Top.Sleeves",
+        "layer": "upperLimbs",
+        "target": "leftArm"
+      },
+      {
+        "assetId": "shirtLeftForearm",
+        "colorGroup": "Clothing.Top.Sleeves",
+        "layer": "frontLimbs",
+        "target": "leftForearm"
+      },
+      {
+        "assetId": "shirtRightUpperArm",
+        "colorGroup": "Clothing.Top.Sleeves",
+        "layer": "upperLimbs",
+        "target": "rightArm"
+      },
+      {
+        "assetId": "shirtRightForearm",
+        "colorGroup": "Clothing.Top.Sleeves",
+        "layer": "frontLimbs",
+        "target": "rightForearm"
+      }
+    ],
+    "slot": "top"
+  },
+  {
+    "id": "office-blazer-visual",
+    "name": "Office Blazer Visual",
+    "pieces": [
+      {
+        "assetId": "shirtTorso",
+        "colorGroup": "Clothing.Top.Base",
+        "layer": "body",
+        "target": "torso"
+      },
+      {
+        "assetId": "shirtCollar",
+        "colorGroup": "Clothing.Top.Sleeves",
+        "layer": "head",
+        "target": "torso"
+      },
+      {
+        "assetId": "shirtPocket",
+        "colorGroup": "Clothing.Top.Sleeves",
+        "layer": "body",
+        "target": "torso"
+      },
+      {
+        "assetId": "shirtLeftUpperArm",
+        "colorGroup": "Clothing.Top.Sleeves",
+        "layer": "upperLimbs",
+        "target": "leftArm"
+      },
+      {
+        "assetId": "shirtLeftForearm",
+        "colorGroup": "Clothing.Top.Sleeves",
+        "layer": "frontLimbs",
+        "target": "leftForearm"
+      },
+      {
+        "assetId": "shirtRightUpperArm",
+        "colorGroup": "Clothing.Top.Sleeves",
+        "layer": "upperLimbs",
+        "target": "rightArm"
+      },
+      {
+        "assetId": "shirtRightForearm",
+        "colorGroup": "Clothing.Top.Sleeves",
+        "layer": "frontLimbs",
+        "target": "rightForearm"
+      }
+    ],
+    "slot": "top"
+  },
+  {
+    "id": "comfy-shorts-visual",
+    "name": "Comfy Shorts Visual",
+    "pieces": [
+      {
+        "assetId": "comfyShortsBody",
+        "colorGroup": "Clothing.Bottom.Hip",
+        "layer": "legs",
+        "target": "torso"
+      },
+      {
+        "assetId": "shortsLeftThigh",
+        "colorGroup": "Clothing.Bottom.Legs",
+        "layer": "legs",
+        "target": "leftThigh"
+      },
+      {
+        "assetId": "shortsRightThigh",
+        "colorGroup": "Clothing.Bottom.Legs",
+        "layer": "legs",
+        "target": "rightThigh"
+      }
+    ],
+    "slot": "bottom"
+  },
+  {
+    "id": "city-jeans-visual",
+    "name": "City Jeans Visual",
+    "pieces": [
+      {
+        "assetId": "shortsHip",
+        "colorGroup": "Clothing.Bottom.Hip",
+        "layer": "legs",
+        "target": "hip"
+      },
+      {
+        "assetId": "shortsLeftThigh",
+        "colorGroup": "Clothing.Bottom.Legs",
+        "layer": "legs",
+        "target": "leftThigh",
+        "transform": {
+          "x": 5.0
+        }
+      },
+      {
+        "assetId": "pantsLeftShank",
+        "colorGroup": "Clothing.Bottom.Legs",
+        "layer": "legs",
+        "target": "leftShank",
+        "transform": {
+          "x": -25.0,
+          "y": -20.0
+        }
+      },
+      {
+        "assetId": "shortsRightThigh",
+        "colorGroup": "Clothing.Bottom.Legs",
+        "layer": "legs",
+        "target": "rightThigh",
+        "transform": {
+          "x": -10.0
+        }
+      },
+      {
+        "assetId": "pantsRightShank",
+        "colorGroup": "Clothing.Bottom.Legs",
+        "layer": "legs",
+        "target": "rightShank",
+        "transform": {
+          "x": 29.0,
+          "y": -10.0
+        }
+      }
+    ],
+    "slot": "bottom"
+  },
+  {
+    "id": "clean-sneakers-visual",
+    "name": "Clean Sneakers Visual",
+    "pieces": [
+      {
+        "assetId": "shoeRightOutward",
+        "colorGroup": "Clothing.Shoes.Base",
+        "layer": "frontLimbs",
+        "target": "leftFoot",
+        "transform": {
+          "scaleX": 1.18,
+          "scaleY": 1.18,
+          "y": 76.0
+        }
+      },
+      {
+        "assetId": "shoeLeftOutward",
+        "colorGroup": "Clothing.Shoes.Base",
+        "layer": "frontLimbs",
+        "target": "rightFoot",
+        "transform": {
+          "scaleX": 1.18,
+          "scaleY": 1.18,
+          "y": 76.0
+        }
+      }
+    ],
+    "slot": "shoes"
+  },
+  {
+    "id": "round-glasses-visual",
+    "name": "Round Glasses Visual",
+    "pieces": [
+      {
+        "assetId": "roundGlasses",
+        "layer": "front",
+        "target": "face"
+      }
+    ],
+    "slot": "faceAccessory"
+  },
+  {
+    "id": "star-earrings-visual",
+    "name": "Star Earrings Visual",
+    "pieces": [
+      {
+        "assetId": "starEarringLeft",
+        "layer": "front",
+        "target": "leftEar"
+      },
+      {
+        "assetId": "starEarringRight",
+        "layer": "front",
+        "target": "rightEar"
+      }
+    ],
+    "slot": "earAccessory"
+  },
+  {
+    "id": "moon-horns-visual",
+    "name": "Moon Horns Visual",
+    "pieces": [
+      {
+        "assetId": "moonHorns",
+        "layer": "front",
+        "target": "horns"
+      }
+    ],
+    "slot": "horns"
+  },
+  {
+    "id": "fox-tail-visual",
+    "name": "Fox Tail Visual",
+    "pieces": [
+      {
+        "assetId": "foxTail",
+        "layer": "back",
+        "target": "tail"
+      }
+    ],
+    "slot": "tail"
+  }
+]

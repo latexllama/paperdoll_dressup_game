@@ -1,0 +1,26 @@
+{
+  "actorViewBox": {
+    "width": 2400,
+    "height": 3100
+  },
+  "variants": {
+    "female": {
+      "viewBox": {
+        "x": 0,
+        "y": 0,
+        "width": 1311.59,
+        "height": 1776.59
+      },
+      "baseScale": 1.58
+    },
+    "male": {
+      "viewBox": {
+        "x": 0,
+        "y": 0,
+        "width": 1612.34,
+        "height": 1810.71
+      },
+      "baseScale": 1.55
+    }
+  }
+}

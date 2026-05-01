@@ -1,0 +1,149 @@
+[gd_scene load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://scripts/ui/DevContentEditor.gd" id="1_script"]
+[ext_resource type="Script" path="res://scripts/ui/LatticeCanvas.gd" id="2_lattice"]
+
+[node name="DevContentEditor" type="Window"]
+title = "Dev Content Editor"
+initial_position = 1
+size = Vector2i(1580, 920)
+visible = false
+script = ExtResource("1_script")
+
+[node name="Margin" type="MarginContainer" parent="."]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 14.0
+offset_top = 14.0
+offset_right = -14.0
+offset_bottom = -14.0
+
+[node name="EditorRoot" type="VBoxContainer" parent="Margin"]
+layout_mode = 2
+theme_override_constants/separation = 10
+
+[node name="Toolbar" type="HBoxContainer" parent="Margin/EditorRoot"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="SectionOption" type="OptionButton" parent="Margin/EditorRoot/Toolbar"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(230, 0)
+layout_mode = 2
+
+[node name="ValidateButton" type="Button" parent="Margin/EditorRoot/Toolbar"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Validate"
+
+[node name="SaveAllButton" type="Button" parent="Margin/EditorRoot/Toolbar"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Save All"
+
+[node name="RevertDraftButton" type="Button" parent="Margin/EditorRoot/Toolbar"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Revert Draft"
+
+[node name="ToolbarSpacer" type="Control" parent="Margin/EditorRoot/Toolbar"]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="DirtyLabel" type="Label" parent="Margin/EditorRoot/Toolbar"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Clean"
+
+[node name="EditorStatus" type="Label" parent="Margin/EditorRoot"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 42)
+layout_mode = 2
+text = "Ready"
+autowrap_mode = 3
+
+[node name="EditorBody" type="HSplitContainer" parent="Margin/EditorRoot"]
+layout_mode = 2
+size_flags_vertical = 3
+split_offset = 300
+
+[node name="RecordColumn" type="VBoxContainer" parent="Margin/EditorRoot/EditorBody"]
+custom_minimum_size = Vector2(280, 0)
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="RecordList" type="ItemList" parent="Margin/EditorRoot/EditorBody/RecordColumn"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_vertical = 3
+allow_reselect = true
+
+[node name="RecordButtons" type="HBoxContainer" parent="Margin/EditorRoot/EditorBody/RecordColumn"]
+layout_mode = 2
+theme_override_constants/separation = 6
+
+[node name="AddRecordButton" type="Button" parent="Margin/EditorRoot/EditorBody/RecordColumn/RecordButtons"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Add"
+
+[node name="DuplicateRecordButton" type="Button" parent="Margin/EditorRoot/EditorBody/RecordColumn/RecordButtons"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Duplicate"
+
+[node name="DeleteRecordButton" type="Button" parent="Margin/EditorRoot/EditorBody/RecordColumn/RecordButtons"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Delete"
+
+[node name="WorkArea" type="HSplitContainer" parent="Margin/EditorRoot/EditorBody"]
+layout_mode = 2
+size_flags_horizontal = 3
+split_offset = 760
+
+[node name="FormScroll" type="ScrollContainer" parent="Margin/EditorRoot/EditorBody/WorkArea"]
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+horizontal_scroll_mode = 0
+
+[node name="FormContent" type="VBoxContainer" parent="Margin/EditorRoot/EditorBody/WorkArea/FormScroll"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 8
+
+[node name="PreviewColumn" type="VBoxContainer" parent="Margin/EditorRoot/EditorBody/WorkArea"]
+custom_minimum_size = Vector2(380, 0)
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="PreviewTexture" type="TextureRect" parent="Margin/EditorRoot/EditorBody/WorkArea/PreviewColumn"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(360, 430)
+layout_mode = 2
+size_flags_vertical = 3
+expand_mode = 1
+stretch_mode = 5
+
+[node name="LatticeCanvas" type="Control" parent="Margin/EditorRoot/EditorBody/WorkArea/PreviewColumn"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(360, 300)
+layout_mode = 2
+size_flags_vertical = 3
+script = ExtResource("2_lattice")
+
+[node name="PreviewStatus" type="Label" parent="Margin/EditorRoot/EditorBody/WorkArea/PreviewColumn"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Preview"
+autowrap_mode = 3
+
+[node name="SvgImportDialog" type="FileDialog" parent="."]
+unique_name_in_owner = true
+title = "Import SVG Asset"
+size = Vector2i(980, 680)
+access = 2
+filters = PackedStringArray("*.svg ; SVG files")

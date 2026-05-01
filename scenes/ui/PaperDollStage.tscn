@@ -1,0 +1,57 @@
+[gd_scene load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://scripts/ui/PaperDollStage.gd" id="1_script"]
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_stage"]
+bg_color = Color(0.961, 0.941, 0.91, 1)
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+border_color = Color(0.78, 0.735, 0.675, 1)
+corner_radius_top_left = 8
+corner_radius_top_right = 8
+corner_radius_bottom_right = 8
+corner_radius_bottom_left = 8
+
+[node name="PaperDollStage" type="PanelContainer"]
+offset_right = 720.0
+offset_bottom = 980.0
+mouse_filter = 0
+theme_override_styles/panel = SubResource("StyleBoxFlat_stage")
+script = ExtResource("1_script")
+
+[node name="StageRoot" type="Control" parent="."]
+layout_mode = 2
+mouse_filter = 2
+
+[node name="DollTexture" type="TextureRect" parent="StageRoot"]
+unique_name_in_owner = true
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 24.0
+offset_top = 24.0
+offset_right = -24.0
+offset_bottom = -24.0
+mouse_filter = 2
+expand_mode = 1
+stretch_mode = 5
+
+[node name="StageHint" type="Label" parent="StageRoot"]
+unique_name_in_owner = true
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -160.0
+offset_top = -18.0
+offset_right = 160.0
+offset_bottom = 18.0
+mouse_filter = 2
+text = "Drag items here"
+horizontal_alignment = 1
+vertical_alignment = 1

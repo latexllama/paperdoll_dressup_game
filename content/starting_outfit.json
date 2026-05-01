@@ -1,0 +1,15 @@
+{
+  "id": "starter",
+  "name": "Starter Outfit",
+  "variant": "female",
+  "poseId": "idle",
+  "skinTone": "#d28062",
+  "skinLine": "#8f4b38",
+  "hairColor": "#221a16",
+  "eyeColor": "#222222",
+  "equippedItemIds": [
+    "plain-tee",
+    "comfy-shorts",
+    "clean-sneakers"
+  ]
+}

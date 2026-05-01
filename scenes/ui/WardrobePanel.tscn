@@ -1,0 +1,56 @@
+[gd_scene load_steps=4 format=3]
+
+[ext_resource type="Script" path="res://scripts/ui/WardrobePanel.gd" id="1_script"]
+[ext_resource type="PackedScene" path="res://scenes/ui/WardrobeItemTile.tscn" id="2_tile"]
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_panel"]
+bg_color = Color(0.985, 0.975, 0.955, 1)
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+border_color = Color(0.78, 0.735, 0.675, 1)
+corner_radius_top_left = 8
+corner_radius_top_right = 8
+corner_radius_bottom_right = 8
+corner_radius_bottom_left = 8
+
+[node name="WardrobePanel" type="PanelContainer"]
+offset_right = 1030.0
+offset_bottom = 980.0
+mouse_filter = 0
+theme_override_styles/panel = SubResource("StyleBoxFlat_panel")
+script = ExtResource("1_script")
+tile_scene = ExtResource("2_tile")
+
+[node name="PanelLayout" type="VBoxContainer" parent="."]
+layout_mode = 2
+mouse_filter = 1
+theme_override_constants/separation = 12
+
+[node name="CategoryScroll" type="ScrollContainer" parent="PanelLayout"]
+custom_minimum_size = Vector2(0, 72)
+layout_mode = 2
+mouse_filter = 1
+horizontal_scroll_mode = 2
+vertical_scroll_mode = 0
+
+[node name="CategoryBar" type="HBoxContainer" parent="PanelLayout/CategoryScroll"]
+unique_name_in_owner = true
+layout_mode = 2
+mouse_filter = 1
+theme_override_constants/separation = 8
+
+[node name="ItemsScroll" type="ScrollContainer" parent="PanelLayout"]
+layout_mode = 2
+size_flags_vertical = 3
+mouse_filter = 1
+
+[node name="ItemGrid" type="GridContainer" parent="PanelLayout/ItemsScroll"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+mouse_filter = 1
+theme_override_constants/h_separation = 14
+theme_override_constants/v_separation = 14
+columns = 5
