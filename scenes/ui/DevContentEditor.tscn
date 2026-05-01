@@ -155,6 +155,21 @@ size = Vector2i(980, 680)
 access = 2
 filters = PackedStringArray("*.svg ; SVG files")
 
+[node name="BodyPartExportDirDialog" type="FileDialog" parent="."]
+unique_name_in_owner = true
+title = "Choose Body Part SVG Export Folder"
+size = Vector2i(980, 680)
+access = 2
+file_mode = 2
+
+[node name="BodyRigExportAllDialog" type="FileDialog" parent="."]
+unique_name_in_owner = true
+title = "Export Body Rig SVG"
+size = Vector2i(980, 680)
+access = 2
+file_mode = 4
+filters = PackedStringArray("*.svg ; SVG files")
+
 [node name="DiscardDraftDialog" type="ConfirmationDialog" parent="."]
 unique_name_in_owner = true
 title = "Discard Unsaved Changes?"

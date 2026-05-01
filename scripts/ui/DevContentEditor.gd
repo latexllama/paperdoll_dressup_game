@@ -6,6 +6,7 @@ signal content_saved
 const OutfitStateScript := preload("res://scripts/game/OutfitState.gd")
 const DevEditorDraftScript := preload("res://scripts/ui/DevEditorDraft.gd")
 const PoseKinematicsScript := preload("res://scripts/doll/PoseKinematics.gd")
+const BodyRigSvgExporterScript := preload("res://scripts/doll/BodyRigSvgExporter.gd")
 const Models := preload("res://scripts/ui/DevEditorModels.gd")
 
 const SECTION_WARDROBE := "wardrobe"
@@ -56,6 +57,8 @@ var _pose_position_snap := 1.0
 @onready var _pose_canvas = %PosePreviewCanvas
 @onready var _lattice_canvas: Control = %LatticeCanvas
 @onready var _import_dialog: FileDialog = %SvgImportDialog
+@onready var _body_part_export_dialog: FileDialog = %BodyPartExportDirDialog
+@onready var _body_rig_export_all_dialog: FileDialog = %BodyRigExportAllDialog
 @onready var _discard_dialog: ConfirmationDialog = %DiscardDraftDialog
 
 
@@ -76,6 +79,8 @@ func _ready() -> void:
 	_pose_canvas.edit_finished.connect(_on_pose_canvas_edit_finished)
 	_pose_canvas.status_changed.connect(_set_status)
 	_import_dialog.file_selected.connect(_on_svg_file_selected)
+	_body_part_export_dialog.dir_selected.connect(_on_body_part_export_dir_selected)
+	_body_rig_export_all_dialog.file_selected.connect(_on_body_rig_export_all_file_selected)
 	_discard_dialog.confirmed.connect(_close_and_discard_draft)
 	_lattice_canvas.visible = false
 	_pose_canvas.visible = false
@@ -518,6 +523,7 @@ func _build_body_rig_form() -> void:
 		_refresh_all()
 	)
 	var part = _selected_record()
+	_add_body_rig_export_buttons(part, not _parts_for_selected_variant().is_empty())
 	if part.is_empty():
 		_add_note("No body part selected.")
 		return
@@ -562,6 +568,20 @@ func _build_body_rig_form() -> void:
 	_build_body_svg_variations(part)
 	_build_lattice_variations(part)
 	_refresh_body_preview()
+
+
+func _add_body_rig_export_buttons(part: Dictionary, has_variant_parts: bool) -> void:
+	var row := _add_button_row()
+	var export_part_button := _button("Export SVG", func() -> void:
+		_open_body_part_export_dialog()
+	)
+	export_part_button.disabled = part.is_empty()
+	row.add_child(export_part_button)
+	var export_all_button := _button("Export All SVG", func() -> void:
+		_open_body_rig_export_all_dialog()
+	)
+	export_all_button.disabled = not has_variant_parts
+	row.add_child(export_all_button)
 
 
 func _build_body_svg_variations(part: Dictionary) -> void:
@@ -984,6 +1004,66 @@ func _on_svg_file_selected(path: String) -> void:
 	asset["svgMarkup"] = markup
 	_selected_id = _asset_import_target_id
 	_mark_changed("Imported SVG asset.", true, true)
+
+
+func _open_body_part_export_dialog() -> void:
+	var part = _selected_record()
+	if part.is_empty():
+		_set_status("Select a body part before exporting SVG.")
+		return
+	var documents_dir := OS.get_system_dir(OS.SYSTEM_DIR_DOCUMENTS)
+	if documents_dir != "":
+		_body_part_export_dialog.current_dir = documents_dir
+	_body_part_export_dialog.popup_centered(Vector2i(980, 680))
+
+
+func _open_body_rig_export_all_dialog() -> void:
+	if _parts_for_selected_variant().is_empty():
+		_set_status("No body parts are available for this variant.")
+		return
+	var documents_dir := OS.get_system_dir(OS.SYSTEM_DIR_DOCUMENTS)
+	if documents_dir != "":
+		_body_rig_export_all_dialog.current_dir = documents_dir
+	_body_rig_export_all_dialog.current_file = BodyRigSvgExporterScript.default_variant_file_name(_selected_variant)
+	_body_rig_export_all_dialog.popup_centered(Vector2i(980, 680))
+
+
+func _on_body_part_export_dir_selected(folder_path: String) -> void:
+	var part = _selected_record()
+	if part.is_empty():
+		_set_status("Export failed: selected body part no longer exists.")
+		return
+	var source := BodyRigSvgExporterScript.resolve_selected_source(part, _selected_svg_variation_id, _selected_lattice_id)
+	var source_id := String(source.get("id", "base"))
+	var file_name := BodyRigSvgExporterScript.default_part_file_name(_selected_variant, String(part.get("id", "")), source_id)
+	var export_path := folder_path.path_join(file_name)
+	var svg := BodyRigSvgExporterScript.build_part_template_svg(_draft.repository_clone(), _selected_variant, part, source_id, String(source.get("markup", "")))
+	var result := BodyRigSvgExporterScript.write_svg(export_path, svg)
+	if result.get("ok", false):
+		_set_status("Exported body part SVG to %s." % export_path)
+	else:
+		_set_status("Export failed: %s" % "; ".join(result.get("errors", [])))
+
+
+func _on_body_rig_export_all_file_selected(file_path: String) -> void:
+	var export_path := file_path
+	if export_path.get_extension().to_lower() != "svg":
+		export_path = "%s.svg" % export_path
+	var part = _selected_record()
+	var selected_part_id := ""
+	var selected_source_id := "base"
+	var selected_markup := ""
+	if not part.is_empty():
+		var source := BodyRigSvgExporterScript.resolve_selected_source(part, _selected_svg_variation_id, _selected_lattice_id)
+		selected_part_id = String(part.get("id", ""))
+		selected_source_id = String(source.get("id", "base"))
+		selected_markup = String(source.get("markup", ""))
+	var svg := BodyRigSvgExporterScript.build_variant_template_svg(_draft.repository_clone(), _selected_variant, selected_part_id, selected_source_id, selected_markup)
+	var result := BodyRigSvgExporterScript.write_svg(export_path, svg)
+	if result.get("ok", false):
+		_set_status("Exported body rig SVG to %s." % export_path)
+	else:
+		_set_status("Export failed: %s" % "; ".join(result.get("errors", [])))
 
 
 func _on_lattice_point_moved(_index: int, _point: Dictionary) -> void:
