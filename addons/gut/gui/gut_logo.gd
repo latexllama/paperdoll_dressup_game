@@ -102,7 +102,10 @@ class Eyeball:
 	func eye_laser(global_pos):
 		_should_draw_laser = true
 		_laser_end_pos = global_pos
-		_laser_timer.start()
+		if _laser_timer != null and _laser_timer.is_inside_tree():
+			_laser_timer.start()
+		else:
+			call_deferred("_stop_laser")
 
 
 	func _stop_laser():

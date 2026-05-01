@@ -215,15 +215,14 @@ dialog_text = "The Dev Content Editor has unsaved draft changes. Close and disca
 unique_name_in_owner = true
 title = "Choose Duplicate ID"
 size = Vector2i(460, 190)
+min_size = Vector2i(460, 190)
+unresizable = true
 
 [node name="Margin" type="MarginContainer" parent="CreateIdDialog"]
-anchors_preset = 15
-anchor_right = 1.0
-anchor_bottom = 1.0
 offset_left = 12.0
 offset_top = 12.0
-offset_right = -12.0
-offset_bottom = -12.0
+offset_right = 448.0
+offset_bottom = 128.0
 
 [node name="Content" type="VBoxContainer" parent="CreateIdDialog/Margin"]
 layout_mode = 2

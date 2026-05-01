@@ -264,7 +264,7 @@ func test_add_record_id_is_editable_until_record_selection_changes() -> void:
 
 	editor._on_add_pressed()
 
-	var created_id := editor._selected_id
+	var created_id: String = editor._selected_id
 	assert_true(_line_edit_for_label(editor, "ID").editable)
 
 	editor._on_record_selected(0)
@@ -301,7 +301,7 @@ func test_new_record_id_edit_rejects_empty_and_duplicate_values() -> void:
 
 	editor._on_add_pressed()
 
-	var created_id := editor._selected_id
+	var created_id: String = editor._selected_id
 	var id_edit := _line_edit_for_label(editor, "ID")
 	id_edit.text_changed.emit("")
 	assert_eq(editor._selected_id, created_id)
@@ -324,6 +324,8 @@ func test_duplicate_prompts_for_id_and_creates_read_only_clone() -> void:
 	editor._on_duplicate_pressed()
 
 	assert_true(editor._create_id_dialog.visible)
+	assert_true(editor._create_id_dialog.size.x <= 460)
+	assert_true(editor._create_id_dialog.size.y <= 190)
 	editor._on_create_id_text_changed(duplicate_id)
 	assert_true(editor._create_id_dialog.get_ok_button().disabled)
 
@@ -335,6 +337,19 @@ func test_duplicate_prompts_for_id_and_creates_read_only_clone() -> void:
 	assert_eq(editor._selected_id, "manual-wardrobe-copy")
 	assert_false(DevEditorModels.record_by_id(editor._draft.wardrobe, "manual-wardrobe-copy").is_empty())
 	assert_false(_line_edit_for_label(editor, "ID").editable)
+
+
+func test_duplicate_id_dialog_close_clears_request() -> void:
+	var editor = await _configured_editor()
+	editor._section = "poses"
+	editor._selected_id = String(editor._draft.poses[0]["id"])
+	editor._render_form()
+
+	editor._on_duplicate_pressed()
+	editor._on_create_id_close_requested()
+
+	assert_false(editor._create_id_dialog.visible)
+	assert_false(editor._duplicate_confirm_callback.is_valid())
 
 
 func test_new_svg_and_lattice_variation_ids_are_editable_only_during_creation() -> void:
@@ -364,8 +379,8 @@ func test_animation_section_sets_and_deletes_keyframes_without_deleting_poses() 
 	var editor = await _configured_editor()
 	editor._section = "animations"
 	editor._selected_id = String(editor._draft.animations[0]["id"])
-	var pose_count := editor._draft.poses.size()
-	var keyframe_count := editor._draft.animations[0]["keyframes"].size()
+	var pose_count: int = editor._draft.poses.size()
+	var keyframe_count: int = editor._draft.animations[0]["keyframes"].size()
 	var pose_id := String(editor._draft.poses[0]["id"])
 	editor._render_form()
 
@@ -384,7 +399,7 @@ func test_animation_create_pose_keyframe_prompts_for_pose_id() -> void:
 	var editor = await _configured_editor()
 	editor._section = "animations"
 	editor._selected_id = String(editor._draft.animations[0]["id"])
-	var keyframe_count := editor._draft.animations[0]["keyframes"].size()
+	var keyframe_count: int = editor._draft.animations[0]["keyframes"].size()
 	editor._render_form()
 
 	editor._on_animation_create_pose_requested(6)

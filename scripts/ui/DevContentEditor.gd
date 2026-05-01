@@ -110,6 +110,7 @@ func _ready() -> void:
 	_discard_dialog.confirmed.connect(_close_and_discard_draft)
 	_create_id_dialog.confirmed.connect(_on_create_id_confirmed)
 	_create_id_dialog.canceled.connect(_clear_duplicate_id_request)
+	_create_id_dialog.close_requested.connect(_on_create_id_close_requested)
 	_create_id_edit.text_changed.connect(_on_create_id_text_changed)
 	_lattice_canvas.visible = false
 	_body_rig_canvas.visible = false
@@ -1554,14 +1555,14 @@ func _id_exists(records_or_keys: Variant, id: String) -> bool:
 	return false
 
 
-func _request_duplicate_id(default_id: String, records_or_keys: Variant, title: String, confirm_callback: Callable) -> void:
+func _request_duplicate_id(default_id: String, records_or_keys: Variant, dialog_title: String, confirm_callback: Callable) -> void:
 	_duplicate_confirm_callback = confirm_callback
 	_duplicate_id_records = records_or_keys
-	_create_id_dialog.title = title
+	_create_id_dialog.title = dialog_title
 	_create_id_prompt.text = "Enter the ID to create for this duplicate."
 	_create_id_edit.text = default_id
 	_on_create_id_text_changed(default_id)
-	_create_id_dialog.popup_centered(Vector2i(460, 190))
+	_popup_create_id_dialog()
 	_create_id_edit.call_deferred("grab_focus")
 	_create_id_edit.call_deferred("select_all")
 
@@ -1585,7 +1586,7 @@ func _on_create_id_confirmed() -> void:
 	var validation := _validate_new_id(_create_id_edit.text, _duplicate_id_records)
 	if not validation.get("ok", false):
 		_create_id_status.text = "; ".join(validation.get("errors", []))
-		_create_id_dialog.popup_centered(Vector2i(460, 190))
+		_popup_create_id_dialog()
 		return
 	var callback := _duplicate_confirm_callback
 	_clear_duplicate_id_request()
@@ -1596,6 +1597,18 @@ func _clear_duplicate_id_request() -> void:
 	_duplicate_confirm_callback = Callable()
 	_duplicate_id_records = []
 	_create_id_status.text = ""
+
+
+func _on_create_id_close_requested() -> void:
+	_clear_duplicate_id_request()
+	_create_id_dialog.hide()
+
+
+func _popup_create_id_dialog() -> void:
+	const DIALOG_SIZE := Vector2i(460, 190)
+	_create_id_dialog.min_size = DIALOG_SIZE
+	_create_id_dialog.size = DIALOG_SIZE
+	_create_id_dialog.popup_centered_clamped(DIALOG_SIZE, 0.75)
 
 
 func _section_label(section: String) -> String:
@@ -2062,4 +2075,3 @@ func _control_name_for_label(label: String) -> String:
 		if character.is_valid_identifier() or character.is_valid_int():
 			result += character
 	return result
-

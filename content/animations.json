@@ -1,20 +1,16 @@
 [
   {
-    "id": "idle",
-    "name": "Idle",
-    "frameCount": 48,
     "fps": 24.0,
-    "loop": true,
-    "visibleInPlayer": true,
+    "frameCount": 48,
+    "id": "idle",
     "keyframes": [
       {
-        "frame": 0,
-        "poseId": "idle"
-      },
-      {
-        "frame": 47,
-        "poseId": "idle"
+        "frame": 1,
+        "poseId": "idle_anim_pose0"
       }
-    ]
+    ],
+    "loop": true,
+    "name": "Idle",
+    "visibleInPlayer": true
   }
 ]
