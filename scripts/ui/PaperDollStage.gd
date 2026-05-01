@@ -1,13 +1,11 @@
 class_name PaperDollStage
 extends PanelContainer
 
+const ItemDragPreviewScript := preload("res://scripts/ui/ItemDragPreview.gd")
+
 signal doll_drop_requested(data: Dictionary)
 signal equipped_drag_started(item_id: String)
 signal equipped_drag_cancelled(item_id: String)
-
-const DRAG_PREVIEW_SIZE := Vector2(132.0, 132.0)
-const DRAG_PREVIEW_ICON_RECT := Rect2(10.0, 10.0, 112.0, 88.0)
-const DRAG_PREVIEW_LABEL_RECT := Rect2(8.0, 100.0, 116.0, 24.0)
 
 var repo: ContentRepository
 var outfit: Variant
@@ -114,33 +112,8 @@ func _actor_position_from_stage_position(point: Vector2) -> Dictionary:
 
 
 func _make_drag_preview(item_id: String) -> Control:
-	var root := Control.new()
-	root.custom_minimum_size = DRAG_PREVIEW_SIZE
-	root.size = DRAG_PREVIEW_SIZE
-	root.clip_contents = true
-	root.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var panel := PanelContainer.new()
-	panel.custom_minimum_size = DRAG_PREVIEW_SIZE
-	panel.size = DRAG_PREVIEW_SIZE
-	panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var texture := TextureRect.new()
-	texture.position = DRAG_PREVIEW_ICON_RECT.position
-	texture.size = DRAG_PREVIEW_ICON_RECT.size
-	texture.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	texture.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-	texture.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var item = repo.wardrobe_item(item_id) if repo != null else {}
+	var texture: Texture2D = null
 	if texture_cache != null and not item.is_empty():
-		texture.texture = texture_cache.texture_from_svg(DollSvgBuilder.build_item_icon_svg(repo, item), 1.0)
-	var label := Label.new()
-	label.position = DRAG_PREVIEW_LABEL_RECT.position
-	label.size = DRAG_PREVIEW_LABEL_RECT.size
-	label.text = String(item.get("name", item_id))
-	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	label.clip_text = true
-	label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	root.add_child(panel)
-	root.add_child(texture)
-	root.add_child(label)
-	return root
+		texture = texture_cache.texture_from_svg(DollSvgBuilder.build_item_icon_svg(repo, item), 1.0)
+	return ItemDragPreviewScript.make(texture, String(item.get("name", item_id)))

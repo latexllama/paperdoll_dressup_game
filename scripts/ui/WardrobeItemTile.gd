@@ -1,6 +1,8 @@
 class_name WardrobeItemTile
 extends Button
 
+const ItemDragPreviewScript := preload("res://scripts/ui/ItemDragPreview.gd")
+
 signal wardrobe_drag_started(item_id: String)
 signal wardrobe_drag_cancelled(item_id: String)
 signal equipped_item_returned(item_id: String)
@@ -61,11 +63,4 @@ func _drop_data(_at_position: Vector2, data: Variant) -> void:
 
 
 func _make_drag_preview() -> Control:
-	var panel := PanelContainer.new()
-	panel.custom_minimum_size = Vector2(132, 132)
-	var texture := TextureRect.new()
-	texture.expand_mode = TextureRect.EXPAND_FIT_WIDTH_PROPORTIONAL
-	texture.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-	texture.texture = _icon.texture
-	panel.add_child(texture)
-	return panel
+	return ItemDragPreviewScript.make(_icon.texture, String(item.get("name", item_id())))
