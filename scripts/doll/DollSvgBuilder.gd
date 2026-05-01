@@ -458,9 +458,103 @@ static func _append_path_points(markup: String, points: Array[Vector2]) -> void:
 	var regex := RegEx.new()
 	regex.compile("\\bd\\s*=\\s*['\\\"]([^'\\\"]+)['\\\"]")
 	for match_result in regex.search_all(markup):
-		var values = _number_values(match_result.get_string(1))
-		for index in range(0, values.size() - 1, 2):
-			points.append(Vector2(values[index], values[index + 1]))
+		_append_path_command_points(match_result.get_string(1), points)
+
+
+static func _append_path_command_points(path_data: String, points: Array[Vector2]) -> void:
+	var tokens = _path_tokens(path_data)
+	var index := 0
+	var command := ""
+	var current := Vector2.ZERO
+	var subpath_start := Vector2.ZERO
+	while index < tokens.size():
+		var token = String(tokens[index])
+		if _is_path_command(token):
+			command = token
+			index += 1
+		elif command == "":
+			index += 1
+			continue
+		var upper = command.to_upper()
+		var relative = command != upper
+		match upper:
+			"M":
+				if index + 1 >= tokens.size():
+					return
+				current = _path_point(tokens, index, relative, current)
+				points.append(current)
+				subpath_start = current
+				index += 2
+				command = "l" if relative else "L"
+			"L":
+				if index + 1 >= tokens.size():
+					return
+				current = _path_point(tokens, index, relative, current)
+				points.append(current)
+				index += 2
+			"H":
+				if index >= tokens.size():
+					return
+				var x = float(tokens[index])
+				current.x = current.x + x if relative else x
+				points.append(current)
+				index += 1
+			"V":
+				if index >= tokens.size():
+					return
+				var y = float(tokens[index])
+				current.y = current.y + y if relative else y
+				points.append(current)
+				index += 1
+			"C":
+				if index + 5 >= tokens.size():
+					return
+				var control_1 = _path_point(tokens, index, relative, current)
+				var control_2 = _path_point(tokens, index + 2, relative, current)
+				current = _path_point(tokens, index + 4, relative, current)
+				points.append(control_1)
+				points.append(control_2)
+				points.append(current)
+				index += 6
+			"S":
+				if index + 3 >= tokens.size():
+					return
+				var control = _path_point(tokens, index, relative, current)
+				current = _path_point(tokens, index + 2, relative, current)
+				points.append(control)
+				points.append(current)
+				index += 4
+			"Q":
+				if index + 3 >= tokens.size():
+					return
+				var control = _path_point(tokens, index, relative, current)
+				current = _path_point(tokens, index + 2, relative, current)
+				points.append(control)
+				points.append(current)
+				index += 4
+			"T":
+				if index + 1 >= tokens.size():
+					return
+				current = _path_point(tokens, index, relative, current)
+				points.append(current)
+				index += 2
+			"A":
+				if index + 6 >= tokens.size():
+					return
+				var radius = Vector2(absf(float(tokens[index])), absf(float(tokens[index + 1])))
+				var end_point = _path_point(tokens, index + 5, relative, current)
+				points.append(current - radius)
+				points.append(current + radius)
+				points.append(end_point - radius)
+				points.append(end_point + radius)
+				current = end_point
+				index += 7
+			"Z":
+				current = subpath_start
+				points.append(current)
+				command = ""
+			_:
+				index += 1
 
 
 static func _append_rect_points(markup: String, points: Array[Vector2]) -> void:
@@ -523,6 +617,24 @@ static func _number_values(text: String) -> Array[float]:
 	for match_result in regex.search_all(text):
 		values.append(float(match_result.get_string(0)))
 	return values
+
+
+static func _path_tokens(path_data: String) -> Array[String]:
+	var tokens: Array[String] = []
+	var regex := RegEx.new()
+	regex.compile("[AaCcHhLlMmQqSsTtVvZz]|[-+]?\\d*\\.?\\d+(?:[eE][-+]?\\d+)?")
+	for match_result in regex.search_all(path_data):
+		tokens.append(match_result.get_string(0))
+	return tokens
+
+
+static func _is_path_command(token: String) -> bool:
+	return token.length() == 1 and "AaCcHhLlMmQqSsTtVvZz".contains(token)
+
+
+static func _path_point(tokens: Array[String], index: int, relative: bool, current: Vector2) -> Vector2:
+	var point = Vector2(float(tokens[index]), float(tokens[index + 1]))
+	return current + point if relative else point
 
 
 static func _transformed_rect(rect: Rect2, transform: Transform2D) -> Rect2:

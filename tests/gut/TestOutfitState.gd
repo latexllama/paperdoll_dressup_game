@@ -70,6 +70,39 @@ func test_position_hit_uses_render_layer_before_equip_order() -> void:
 	assert_eq(DollSvgBuilder.top_visible_equipped_item_id_at(repo, outfit, Vector2(150.0, 150.0)), "front-item")
 
 
+func test_position_hit_resolves_relative_svg_path_commands() -> void:
+	var repo := ContentRepository.new()
+	repo.equipment_assets = [
+		{"id": "relative-asset", "name": "Relative", "source": "custom", "actorSpace": true, "svgMarkup": "<path d=\"M1000 1000 c 10 0 20 10 30 30 c -10 0 -20 -10 -30 -30 Z\"/>"},
+	]
+	repo.equipment_visuals = [
+		{"id": "relative-visual", "name": "Relative", "slot": "top", "pieces": [{"target": "body", "layer": "front", "assetId": "relative-asset"}]},
+	]
+	repo.wardrobe = [
+		{"id": "relative-item", "name": "Relative Item", "slot": "top", "visualId": "relative-visual", "color": "#ffffff"},
+	]
+	repo.set_collection("equipment_assets", repo.equipment_assets)
+	repo.set_collection("equipment_visuals", repo.equipment_visuals)
+	repo.set_collection("wardrobe", repo.wardrobe)
+	var outfit = OutfitStateScript.new({"equippedItemIds": ["relative-item"]})
+
+	assert_eq(DollSvgBuilder.top_visible_equipped_item_id_at(repo, outfit, Vector2(1015.0, 1015.0)), "relative-item")
+	assert_eq(DollSvgBuilder.top_visible_equipped_item_id_at(repo, outfit, Vector2(40.0, 40.0)), "")
+
+
+func test_position_hit_does_not_select_imported_shoes_from_upper_body() -> void:
+	var repo := ContentRepository.new()
+	var validation = repo.load_all()
+	assert_true(validation.get("ok", false), "; ".join(validation.get("errors", [])))
+	var outfit = OutfitStateScript.new({
+		"variant": "female",
+		"poseId": "idle",
+		"equippedItemIds": ["gym-hoodie", "comfy-shorts", "clean-sneakers"],
+	})
+
+	assert_ne(DollSvgBuilder.top_visible_equipped_item_id_at(repo, outfit, Vector2(1450.0, 1200.0)), "clean-sneakers")
+
+
 func test_outfit_history_undo_redo_restores_snapshots() -> void:
 	var history = OutfitHistoryScript.new()
 	var outfit = OutfitStateScript.new()
