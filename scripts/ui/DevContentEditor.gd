@@ -174,21 +174,21 @@ func _on_add_pressed() -> void:
 	match _section:
 		SECTION_WARDROBE:
 			var item = Models.create_wardrobe_item(_draft.wardrobe)
-			var visual = Models.create_equipment_visual(String(item["visualId"]), _draft.equipment_visuals)
-			var asset_id = _first_asset_id()
-			if asset_id != "":
-				visual["pieces"].append(_default_visual_piece(asset_id))
-				Models.sync_wardrobe_pieces_from_visual(item, visual)
-			_draft.equipment_visuals.append(visual)
+			var wardrobe_visual = Models.create_equipment_visual(String(item["visualId"]), _draft.equipment_visuals)
+			var wardrobe_asset_id = _first_asset_id()
+			if wardrobe_asset_id != "":
+				wardrobe_visual["pieces"].append(_default_visual_piece(wardrobe_asset_id))
+				Models.sync_wardrobe_pieces_from_visual(item, wardrobe_visual)
+			_draft.equipment_visuals.append(wardrobe_visual)
 			_draft.wardrobe.append(item)
 			_selected_id = String(item["id"])
 		SECTION_VISUALS:
-			var visual = Models.create_equipment_visual("", _draft.equipment_visuals)
-			var asset_id = _first_asset_id()
-			if asset_id != "":
-				visual["pieces"].append(_default_visual_piece(asset_id))
-			_draft.equipment_visuals.append(visual)
-			_selected_id = String(visual["id"])
+			var new_visual = Models.create_equipment_visual("", _draft.equipment_visuals)
+			var visual_asset_id = _first_asset_id()
+			if visual_asset_id != "":
+				new_visual["pieces"].append(_default_visual_piece(visual_asset_id))
+			_draft.equipment_visuals.append(new_visual)
+			_selected_id = String(new_visual["id"])
 		SECTION_ASSETS:
 			var asset = Models.create_equipment_asset(_draft.equipment_assets)
 			_draft.equipment_assets.append(asset)
@@ -214,9 +214,9 @@ func _on_duplicate_pressed() -> void:
 		SECTION_WARDROBE:
 			var item = Models.duplicate_record(record, _draft.wardrobe)
 			var visual_id = String(record.get("visualId", ""))
-			var visual = Models.record_by_id(_draft.equipment_visuals, visual_id)
-			if not visual.is_empty():
-				var visual_clone = Models.duplicate_record(visual, _draft.equipment_visuals)
+			var source_visual = Models.record_by_id(_draft.equipment_visuals, visual_id)
+			if not source_visual.is_empty():
+				var visual_clone = Models.duplicate_record(source_visual, _draft.equipment_visuals)
 				item["visualId"] = String(visual_clone["id"])
 				_draft.equipment_visuals.append(visual_clone)
 				Models.sync_wardrobe_pieces_from_visual(item, visual_clone)
@@ -315,9 +315,9 @@ func _build_wardrobe_form() -> void:
 	)
 	_add_option("Visual", String(item.get("visualId", "")), _ids_for(_draft.equipment_visuals), func(value: String) -> void:
 		item["visualId"] = value
-		var visual = Models.record_by_id(_draft.equipment_visuals, value)
-		if not visual.is_empty():
-			Models.sync_wardrobe_pieces_from_visual(item, visual)
+		var assigned_visual = Models.record_by_id(_draft.equipment_visuals, value)
+		if not assigned_visual.is_empty():
+			Models.sync_wardrobe_pieces_from_visual(item, assigned_visual)
 		_mark_changed("Updated wardrobe visual.", true, true)
 	)
 	_add_text_edit("Description", String(item.get("description", "")), func(value: String) -> void:
@@ -329,8 +329,8 @@ func _build_wardrobe_form() -> void:
 		_mark_changed("Updated base color.")
 	)
 	_add_optional_color("Accent Color", item, "accentColor")
-	var visual = Models.record_by_id(_draft.equipment_visuals, String(item.get("visualId", "")))
-	_add_coverage_view(visual)
+	var coverage_visual = Models.record_by_id(_draft.equipment_visuals, String(item.get("visualId", "")))
+	_add_coverage_view(coverage_visual)
 	_refresh_wardrobe_preview(item)
 
 
@@ -625,10 +625,10 @@ func _build_lattice_variations(part: Dictionary) -> void:
 	)
 	var row = _add_button_row()
 	row.add_child(_button("Create Lattice", func() -> void:
-		var variation = Models.create_lattice_variation(part)
-		var variation_id = String(variation.get("id", Models.unique_id("customLattice", Models._variation_id_records(part))))
-		variation.erase("id")
-		lattice_map[variation_id] = variation
+		var created_variation = Models.create_lattice_variation(part)
+		var variation_id = String(created_variation.get("id", Models.unique_id("customLattice", Models._variation_id_records(part))))
+		created_variation.erase("id")
+		lattice_map[variation_id] = created_variation
 		_selected_lattice_id = variation_id
 		_mark_changed("Created lattice variation.", true, true)
 	))
@@ -640,7 +640,7 @@ func _build_lattice_variations(part: Dictionary) -> void:
 	))
 	if _selected_lattice_id == "":
 		return
-	var variation: Dictionary = lattice_map[_selected_lattice_id]
+	var selected_lattice: Dictionary = lattice_map[_selected_lattice_id]
 	_add_line_edit("Lattice ID", _selected_lattice_id, func(value: String) -> void:
 		if value == "" or value == _selected_lattice_id:
 			return
@@ -650,40 +650,40 @@ func _build_lattice_variations(part: Dictionary) -> void:
 		_selected_lattice_id = value
 		_mark_changed("Renamed lattice variation.", true, true)
 	)
-	_add_option("Source Variation", String(variation.get("sourceVariationId", "")), _variation_source_ids(part), func(value: String) -> void:
-		_set_optional_string(variation, "sourceVariationId", value)
+	_add_option("Source Variation", String(selected_lattice.get("sourceVariationId", "")), _variation_source_ids(part), func(value: String) -> void:
+		_set_optional_string(selected_lattice, "sourceVariationId", value)
 		_mark_changed("Updated lattice source.", true, true)
 	)
-	_add_number("Rows", float(variation.get("rows", 3)), Lattice.MIN_DIVISIONS, Lattice.MAX_DIVISIONS, 1.0, func(value: float) -> void:
-		lattice_map[_selected_lattice_id] = Models.resize_lattice_variation(variation, int(value), int(variation.get("columns", 3)))
+	_add_number("Rows", float(selected_lattice.get("rows", 3)), Lattice.MIN_DIVISIONS, Lattice.MAX_DIVISIONS, 1.0, func(value: float) -> void:
+		lattice_map[_selected_lattice_id] = Models.resize_lattice_variation(selected_lattice, int(value), int(selected_lattice.get("columns", 3)))
 		_mark_changed("Updated lattice rows.", true, true)
 	)
-	_add_number("Columns", float(variation.get("columns", 3)), Lattice.MIN_DIVISIONS, Lattice.MAX_DIVISIONS, 1.0, func(value: float) -> void:
-		lattice_map[_selected_lattice_id] = Models.resize_lattice_variation(variation, int(variation.get("rows", 3)), int(value))
+	_add_number("Columns", float(selected_lattice.get("columns", 3)), Lattice.MIN_DIVISIONS, Lattice.MAX_DIVISIONS, 1.0, func(value: float) -> void:
+		lattice_map[_selected_lattice_id] = Models.resize_lattice_variation(selected_lattice, int(selected_lattice.get("rows", 3)), int(value))
 		_mark_changed("Updated lattice columns.", true, true)
 	)
-	if not variation.has("bounds") or not variation["bounds"] is Dictionary:
+	if not selected_lattice.has("bounds") or not selected_lattice["bounds"] is Dictionary:
 		_add_note("Selected lattice variation is missing valid bounds.")
 		return
-	var bounds: Dictionary = variation["bounds"]
+	var bounds: Dictionary = selected_lattice["bounds"]
 	for key in ["x", "y", "width", "height"]:
 		_add_number("Bounds %s" % key, float(bounds.get(key, 0.0 if key == "x" or key == "y" else 1.0)), -10000.0, 10000.0, 1.0, func(value: float, next_key: String = key) -> void:
 			bounds[next_key] = maxf(1.0, value) if next_key == "width" or next_key == "height" else value
-			Models.reset_lattice_points(variation)
+			Models.reset_lattice_points(selected_lattice)
 			_mark_changed("Updated lattice bounds.", true, true)
 		)
 	var tool_row = _add_button_row()
 	tool_row.add_child(_button("Reset Points", func() -> void:
-		Models.reset_lattice_points(variation)
+		Models.reset_lattice_points(selected_lattice)
 		_mark_changed("Reset lattice points.", true, true)
 	))
 	tool_row.add_child(_button("Fit Bounds From SVG", func() -> void:
-		variation["bounds"] = Models.bounds_for_markup(Models.source_markup_for_lattice(part, variation))
-		Models.reset_lattice_points(variation)
+		selected_lattice["bounds"] = Models.bounds_for_markup(Models.source_markup_for_lattice(part, selected_lattice))
+		Models.reset_lattice_points(selected_lattice)
 		_mark_changed("Fit lattice bounds.", true, true)
 	))
 	_lattice_canvas.visible = true
-	_lattice_canvas.configure(variation, Models.source_markup_for_lattice(part, variation), texture_cache)
+	_lattice_canvas.configure(selected_lattice, Models.source_markup_for_lattice(part, selected_lattice), texture_cache)
 
 
 func _build_pose_form() -> void:
@@ -826,12 +826,12 @@ func _build_sprite_override_controls(pose: Dictionary) -> void:
 			)
 
 
-func _add_transform_editor(title: String, transform: Dictionary, keys: Array, ranges: Dictionary) -> void:
-	_add_title(title)
+func _add_transform_editor(section_title: String, transform: Dictionary, keys: Array, ranges: Dictionary) -> void:
+	_add_title(section_title)
 	for key in keys:
-		var range: Array = ranges.get(key, [-100.0, 100.0, 1.0])
+		var value_range: Array = ranges.get(key, [-100.0, 100.0, 1.0])
 		var default_value = 1.0 if String(key).begins_with("scale") else 0.0
-		_add_number(String(key).capitalize(), float(transform.get(key, default_value)), float(range[0]), float(range[1]), float(range[2]), func(value: float, next_key: String = String(key), next_default: float = default_value) -> void:
+		_add_number(String(key).capitalize(), float(transform.get(key, default_value)), float(value_range[0]), float(value_range[1]), float(value_range[2]), func(value: float, next_key: String = String(key), next_default: float = default_value) -> void:
 			if is_equal_approx(value, next_default):
 				transform.erase(next_key)
 			else:
@@ -1135,11 +1135,11 @@ func _asset_markup_for_preview(asset: Dictionary) -> String:
 	return String(asset.get("svgMarkup", ""))
 
 
-func _set_optional_string(owner: Dictionary, key: String, value: String) -> void:
+func _set_optional_string(target: Dictionary, key: String, value: String) -> void:
 	if value.strip_edges() == "":
-		owner.erase(key)
+		target.erase(key)
 	else:
-		owner[key] = value
+		target[key] = value
 
 
 func _set_pose_part_transform(pose: Dictionary, part_id: String, transform: Dictionary) -> void:
@@ -1311,27 +1311,27 @@ func _add_color_picker(label: String, value: String, on_change: Callable) -> Col
 	return picker
 
 
-func _add_optional_color(label: String, owner: Dictionary, key: String) -> void:
+func _add_optional_color(label: String, target: Dictionary, key: String) -> void:
 	var row = _add_row()
 	var check := CheckBox.new()
 	check.text = label
-	check.button_pressed = owner.has(key)
+	check.button_pressed = target.has(key)
 	row.add_child(check)
 	var picker := ColorPickerButton.new()
-	picker.color = Color.html(String(owner.get(key, "#ffffff")))
-	picker.disabled = not owner.has(key)
+	picker.color = Color.html(String(target.get(key, "#ffffff")))
+	picker.disabled = not target.has(key)
 	picker.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	row.add_child(picker)
 	check.toggled.connect(func(value: bool) -> void:
 		picker.disabled = not value
 		if value:
-			owner[key] = "#ffffff" if not owner.has(key) else owner[key]
+			target[key] = "#ffffff" if not target.has(key) else target[key]
 		else:
-			owner.erase(key)
+			target.erase(key)
 		_mark_changed("Updated optional color.", true, true)
 	)
 	picker.color_changed.connect(func(color: Color) -> void:
-		owner[key] = "#%02x%02x%02x" % [
+		target[key] = "#%02x%02x%02x" % [
 			clampi(int(round(color.r * 255.0)), 0, 255),
 			clampi(int(round(color.g * 255.0)), 0, 255),
 			clampi(int(round(color.b * 255.0)), 0, 255),
@@ -1355,24 +1355,24 @@ func _add_number(label: String, value: float, min_value: float, max_value: float
 	spin.custom_minimum_size.x = 120.0
 	row.add_child(spin)
 	if slider:
-		var range := HSlider.new()
-		range.min_value = min_value
-		range.max_value = max_value
-		range.step = step
-		range.value = spin.value
-		range.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		row.add_child(range)
+		var slider_control := HSlider.new()
+		slider_control.min_value = min_value
+		slider_control.max_value = max_value
+		slider_control.step = step
+		slider_control.value = spin.value
+		slider_control.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		row.add_child(slider_control)
 		var sync := {"active": false}
 		spin.value_changed.connect(func(next_value: float) -> void:
 			if bool(sync["active"]):
 				return
 			sync["active"] = true
-			if not is_equal_approx(range.value, next_value):
-				range.value = next_value
+			if not is_equal_approx(slider_control.value, next_value):
+				slider_control.value = next_value
 			sync["active"] = false
 			on_change.call(next_value)
 		)
-		range.value_changed.connect(func(next_value: float) -> void:
+		slider_control.value_changed.connect(func(next_value: float) -> void:
 			if bool(sync["active"]):
 				return
 			sync["active"] = true

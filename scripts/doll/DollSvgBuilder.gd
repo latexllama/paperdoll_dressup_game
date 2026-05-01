@@ -113,7 +113,7 @@ static func build_svg(repo: ContentRepository, outfit: Variant, options: Diction
 	])
 
 
-static func build_item_icon_svg(repo: ContentRepository, item: Dictionary) -> String:
+static func build_item_icon_svg(_repo: ContentRepository, item: Dictionary) -> String:
 	var color = String(item.get("color", "#d8d8d8"))
 	var accent = String(item.get("accentColor", _adjust_color(color, -40)))
 	var label = _escape_xml(String(item.get("name", item.get("id", "?"))).substr(0, 2).to_upper())

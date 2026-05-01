@@ -35,9 +35,9 @@ func refresh() -> void:
 	var available = _doll_texture.size
 	if available.x <= 0.0 or available.y <= 0.0:
 		available = size
-	var scale = minf(available.x / DollSvgBuilder.ACTOR_WIDTH, available.y / DollSvgBuilder.ACTOR_HEIGHT)
+	var render_scale = minf(available.x / DollSvgBuilder.ACTOR_WIDTH, available.y / DollSvgBuilder.ACTOR_HEIGHT)
 	var svg = DollSvgBuilder.build_svg(repo, outfit)
-	_doll_texture.texture = texture_cache.texture_from_svg(svg, scale)
+	_doll_texture.texture = texture_cache.texture_from_svg(svg, render_scale)
 	_hint_label.visible = outfit.equipped_item_ids.is_empty()
 
 
@@ -97,17 +97,17 @@ func _actor_position_from_stage_position(point: Vector2) -> Dictionary:
 	var texture_size = _doll_texture.size
 	if texture_size.x <= 0.0 or texture_size.y <= 0.0:
 		return {"ok": false}
-	var scale = minf(texture_size.x / DollSvgBuilder.ACTOR_WIDTH, texture_size.y / DollSvgBuilder.ACTOR_HEIGHT)
-	if scale <= 0.0:
+	var render_scale = minf(texture_size.x / DollSvgBuilder.ACTOR_WIDTH, texture_size.y / DollSvgBuilder.ACTOR_HEIGHT)
+	if render_scale <= 0.0:
 		return {"ok": false}
-	var rendered_size = Vector2(DollSvgBuilder.ACTOR_WIDTH, DollSvgBuilder.ACTOR_HEIGHT) * scale
+	var rendered_size = Vector2(DollSvgBuilder.ACTOR_WIDTH, DollSvgBuilder.ACTOR_HEIGHT) * render_scale
 	var rendered_origin = (texture_size - rendered_size) * 0.5
 	var rendered_rect := Rect2(rendered_origin, rendered_size)
 	if not rendered_rect.has_point(texture_local):
 		return {"ok": false}
 	return {
 		"ok": true,
-		"position": (texture_local - rendered_origin) / scale,
+		"position": (texture_local - rendered_origin) / render_scale,
 	}
 
 
