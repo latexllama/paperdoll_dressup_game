@@ -10,8 +10,7 @@ var _repo := ContentRepository.new()
 var _texture_cache = SvgTextureCacheScript.new()
 var _history = OutfitHistoryScript.new()
 var _outfit = OutfitStateScript.new()
-var _pending_doll_drag_snapshot: Dictionary = {}
-var _pending_doll_drag_item_id := ""
+var _drag_session: Dictionary = {}
 
 @onready var _stage = %PaperDollStage
 @onready var _wardrobe_panel = %WardrobePanel
@@ -49,6 +48,8 @@ func _connect_signals() -> void:
 	_stage.doll_drop_requested.connect(_on_doll_drop_requested)
 	_stage.equipped_drag_started.connect(_on_equipped_drag_started)
 	_stage.equipped_drag_cancelled.connect(_on_equipped_drag_cancelled)
+	_wardrobe_panel.wardrobe_drag_started.connect(_on_wardrobe_drag_started)
+	_wardrobe_panel.wardrobe_drag_cancelled.connect(_on_wardrobe_drag_cancelled)
 	_wardrobe_panel.equipped_item_returned.connect(_on_equipped_item_returned)
 	_undo_button.pressed.connect(_on_undo_pressed)
 	_redo_button.pressed.connect(_on_redo_pressed)
@@ -74,44 +75,81 @@ func _refresh_all() -> void:
 func _on_doll_drop_requested(data: Dictionary) -> void:
 	var kind = String(data.get("kind", ""))
 	var item_id = String(data.get("item_id", ""))
-	if item_id == "":
+	if not _is_known_wardrobe_item(item_id):
+		_restore_active_doll_drag("Invalid item drop.")
 		return
 	if kind == "wardrobe_item":
+		if not _wardrobe_panel.is_active_wardrobe_drag(item_id):
+			_wardrobe_panel.cancel_active_wardrobe_drag(item_id)
+			_set_status("Invalid wardrobe drag.")
+			return
+		if _outfit.equipped_item_ids.has(item_id):
+			_wardrobe_panel.cancel_active_wardrobe_drag(item_id)
+			_set_status("%s is already equipped." % _item_name(item_id))
+			return
 		_history.remember(_outfit.to_dictionary())
 		_outfit.equip_item(item_id)
+		_wardrobe_panel.finish_active_wardrobe_drag(item_id)
 		_refresh_all()
+		_set_status("Equipped %s." % _item_name(item_id))
 	elif kind == "equipped_item":
-		var before = _pending_doll_drag_snapshot.duplicate(true)
+		if not _is_active_doll_drag(item_id):
+			_restore_active_doll_drag("Invalid equipped item drop.")
+			return
+		var before = _drag_session.get("before", {}).duplicate(true)
 		_outfit.equip_item(item_id)
 		_remember_if_changed(before)
-		_clear_pending_doll_drag()
+		_clear_drag_session()
 		_refresh_all()
+		if JSON.stringify(before) != JSON.stringify(_outfit.to_dictionary()):
+			_set_status("Re-equipped %s at the top." % _item_name(item_id))
+		else:
+			_set_status("%s remains equipped." % _item_name(item_id))
 
 
 func _on_equipped_drag_started(item_id: String) -> void:
-	_pending_doll_drag_snapshot = _outfit.to_dictionary()
-	_pending_doll_drag_item_id = item_id
-	_outfit.remove_last_item(item_id)
+	if not _is_known_wardrobe_item(item_id) or not _outfit.equipped_item_ids.has(item_id):
+		_set_status("Cannot pick up item.")
+		return
+	_drag_session = {
+		"source": "doll",
+		"item_id": item_id,
+		"before": _outfit.to_dictionary(),
+		"completed": false,
+	}
+	if not _outfit.remove_last_item(item_id):
+		_restore_active_doll_drag("Could not pick up %s." % _item_name(item_id))
+		return
 	_stage.set_outfit(_outfit)
+	_set_status("Picked up %s." % _item_name(item_id))
 
 
-func _on_equipped_drag_cancelled(_item_id: String) -> void:
-	if not _pending_doll_drag_snapshot.is_empty():
-		_outfit = OutfitStateScript.new(_pending_doll_drag_snapshot)
-		_clear_pending_doll_drag()
-		_refresh_all()
+func _on_equipped_drag_cancelled(item_id: String) -> void:
+	if _is_active_doll_drag(item_id):
+		_restore_active_doll_drag("Returned %s to the doll." % _item_name(item_id))
 
 
 func _on_equipped_item_returned(item_id: String) -> void:
-	if item_id == "":
+	if not _is_known_wardrobe_item(item_id):
+		_restore_active_doll_drag("Invalid wardrobe return.")
 		return
-	if not _pending_doll_drag_snapshot.is_empty():
-		_remember_if_changed(_pending_doll_drag_snapshot)
-	else:
-		_history.remember(_outfit.to_dictionary())
-		_outfit.remove_last_item(item_id)
-	_clear_pending_doll_drag()
+	if not _is_active_doll_drag(item_id):
+		_restore_active_doll_drag("Invalid wardrobe return.")
+		return
+	_remember_if_changed(_drag_session.get("before", {}))
+	_clear_drag_session()
 	_refresh_all()
+	_set_status("Returned %s to wardrobe." % _item_name(item_id))
+
+
+func _on_wardrobe_drag_started(item_id: String) -> void:
+	if _is_known_wardrobe_item(item_id):
+		_set_status("Dragging %s." % _item_name(item_id))
+
+
+func _on_wardrobe_drag_cancelled(item_id: String) -> void:
+	if item_id != "":
+		_set_status("Cancelled %s." % _item_name(item_id))
 
 
 func _on_undo_pressed() -> void:
@@ -230,9 +268,31 @@ func _select_option_by_text(option: OptionButton, value: String) -> void:
 		option.select(0)
 
 
-func _clear_pending_doll_drag() -> void:
-	_pending_doll_drag_snapshot = {}
-	_pending_doll_drag_item_id = ""
+func _is_known_wardrobe_item(item_id: String) -> bool:
+	return item_id != "" and _repo.has_wardrobe_item(item_id)
+
+
+func _is_active_doll_drag(item_id: String) -> bool:
+	return String(_drag_session.get("source", "")) == "doll" and String(_drag_session.get("item_id", "")) == item_id
+
+
+func _restore_active_doll_drag(message: String) -> void:
+	if String(_drag_session.get("source", "")) == "doll":
+		var before = _drag_session.get("before", {})
+		if not before.is_empty():
+			_outfit = OutfitStateScript.new(before)
+	_clear_drag_session()
+	_refresh_all()
+	_set_status(message)
+
+
+func _clear_drag_session() -> void:
+	_drag_session = {}
+
+
+func _item_name(item_id: String) -> String:
+	var item = _repo.wardrobe_item(item_id)
+	return String(item.get("name", item_id))
 
 
 func _remember_if_changed(before: Dictionary) -> void:

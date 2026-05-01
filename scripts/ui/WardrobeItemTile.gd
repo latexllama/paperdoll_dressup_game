@@ -49,7 +49,10 @@ func _notification(what: int) -> void:
 
 
 func _can_drop_data(_at_position: Vector2, data: Variant) -> bool:
-	return data is Dictionary and String(data.get("kind", "")) == "equipped_item"
+	if not (data is Dictionary):
+		return false
+	var dropped_item_id = String(data.get("item_id", ""))
+	return String(data.get("kind", "")) == "equipped_item" and dropped_item_id != "" and repo != null and repo.has_wardrobe_item(dropped_item_id)
 
 
 func _drop_data(_at_position: Vector2, data: Variant) -> void:

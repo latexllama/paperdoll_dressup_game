@@ -146,6 +146,31 @@ static func top_visible_equipped_item_id(repo: ContentRepository, outfit: Varian
 	return top_item_id
 
 
+static func top_visible_equipped_item_id_at(repo: ContentRepository, outfit: Variant, actor_position: Vector2) -> String:
+	var top_item_id := ""
+	var pose = repo.pose(outfit.pose_id)
+	for layer in LAYER_ORDER:
+		for item_id in outfit.equipped_item_ids:
+			var item = repo.wardrobe_item(String(item_id))
+			if item.is_empty():
+				continue
+			var visual = repo.equipment_visual(String(item.get("visualId", "")))
+			if visual.is_empty():
+				continue
+			for piece in visual.get("pieces", []):
+				if String(piece.get("layer", "front")) != layer:
+					continue
+				var asset = repo.equipment_asset(String(piece.get("assetId", "")))
+				if asset.is_empty():
+					continue
+				var bounds = _equipment_piece_actor_bounds(repo, outfit, pose, piece, asset)
+				if bounds.size.x <= 0.0 or bounds.size.y <= 0.0:
+					continue
+				if bounds.has_point(actor_position):
+					top_item_id = String(item_id)
+	return top_item_id
+
+
 static func _body_part_svg(repo: ContentRepository, outfit: Variant, pose: Dictionary, part: Dictionary, tokens: Dictionary) -> String:
 	var part_id = String(part.get("id", ""))
 	var markup = _resolve_body_part_markup(part, pose)
@@ -339,6 +364,204 @@ static func _visual_transform(transform: Dictionary, pivot: Dictionary) -> Strin
 		_num(-float(pivot["x"])),
 		_num(-float(pivot["y"])),
 	]
+
+
+static func _equipment_piece_actor_bounds(repo: ContentRepository, outfit: Variant, pose: Dictionary, piece: Dictionary, asset: Dictionary) -> Rect2:
+	var target = String(piece.get("target", "body"))
+	var pivot = _pivot_for(repo, outfit.variant, target)
+	var source_bounds := Rect2()
+	if String(asset.get("source", "")) == "cta":
+		var variant_data = asset.get("variants", {}).get(outfit.variant, {})
+		source_bounds = _svg_markup_bounds(String(variant_data.get("svgMarkup", "")))
+		if source_bounds.size.x > 0.0 and source_bounds.size.y > 0.0:
+			source_bounds = _actor_space_rect(source_bounds, {
+				"viewBox": variant_data.get("viewBox", {}),
+				"baseScale": repo.sample_meta.get("variants", {}).get(outfit.variant, {}).get("baseScale", 1.58),
+			})
+	else:
+		source_bounds = _svg_markup_bounds(String(asset.get("svgMarkup", "")))
+		if source_bounds.size.x > 0.0 and source_bounds.size.y > 0.0 and not bool(asset.get("actorSpace", false)):
+			source_bounds.position += Vector2(float(pivot["x"]), float(pivot["y"]))
+	if source_bounds.size.x <= 0.0 or source_bounds.size.y <= 0.0:
+		source_bounds = Rect2(Vector2(float(pivot["x"]) - 80.0, float(pivot["y"]) - 80.0), Vector2(160.0, 160.0))
+	source_bounds = source_bounds.grow(32.0)
+	var transform = _equipment_piece_actor_transform(repo, outfit.variant, pose, piece, pivot)
+	return _transformed_rect(source_bounds, transform)
+
+
+static func _equipment_piece_actor_transform(repo: ContentRepository, variant: String, pose: Dictionary, piece: Dictionary, pivot: Dictionary) -> Transform2D:
+	var transform := Transform2D.IDENTITY
+	var target = String(piece.get("target", "body"))
+	for part_id in _transform_chain_for_target(repo, variant, target):
+		transform = transform * _pose_transform_matrix(pose, part_id, _pivot_for(repo, variant, part_id))
+	transform = transform * _visual_transform_matrix(piece.get("transform", {}), pivot)
+	return transform
+
+
+static func _pose_transform_matrix(pose: Dictionary, part_id: String, pivot: Dictionary) -> Transform2D:
+	var authored = pose.get("parts", {}).get(part_id, {})
+	var pivot_point = Vector2(float(pivot["x"]), float(pivot["y"]))
+	var transform := Transform2D.IDENTITY
+	transform = transform * _translation_matrix(Vector2(float(authored.get("x", 0.0)), float(authored.get("y", 0.0))))
+	transform = transform * _around_point_matrix(pivot_point, _rotation_matrix(float(authored.get("rotate", 0.0))))
+	var bend = float(authored.get("bend", 0.0))
+	if not is_equal_approx(bend, 0.0):
+		transform = transform * _around_point_matrix(pivot_point, _skew_x_matrix(bend))
+	transform = transform * _scale_matrix(Vector2(float(authored.get("scaleX", 1.0)), float(authored.get("scaleY", 1.0))))
+	return transform
+
+
+static func _visual_transform_matrix(transform: Dictionary, pivot: Dictionary) -> Transform2D:
+	if transform.is_empty():
+		return Transform2D.IDENTITY
+	var pivot_point = Vector2(float(pivot["x"]), float(pivot["y"]))
+	var matrix := Transform2D.IDENTITY
+	matrix = matrix * _translation_matrix(Vector2(float(transform.get("x", 0.0)), float(transform.get("y", 0.0))))
+	matrix = matrix * _translation_matrix(pivot_point)
+	matrix = matrix * _rotation_matrix(float(transform.get("rotate", 0.0)))
+	matrix = matrix * _scale_matrix(Vector2(float(transform.get("scaleX", 1.0)), float(transform.get("scaleY", 1.0))))
+	matrix = matrix * _translation_matrix(-pivot_point)
+	return matrix
+
+
+static func _actor_space_rect(rect: Rect2, source: Dictionary) -> Rect2:
+	var view_box = source.get("viewBox", source)
+	var base_scale = float(source.get("baseScale", 1.58))
+	var width = float(view_box.get("width", ACTOR_WIDTH))
+	var x = float(view_box.get("x", 0.0))
+	var y = float(view_box.get("y", 0.0))
+	var scaled_width = width * base_scale
+	var offset = Vector2((ACTOR_WIDTH - scaled_width) / 2.0 - x * base_scale, 88.0 - y * base_scale)
+	return Rect2(offset + rect.position * base_scale, rect.size * base_scale)
+
+
+static func _svg_markup_bounds(markup: String) -> Rect2:
+	var points: Array[Vector2] = []
+	_append_path_points(markup, points)
+	_append_rect_points(markup, points)
+	_append_circle_points(markup, points)
+	_append_ellipse_points(markup, points)
+	_append_line_points(markup, points)
+	if points.is_empty():
+		return Rect2()
+	var min_point = points[0]
+	var max_point = points[0]
+	for point in points:
+		min_point.x = minf(min_point.x, point.x)
+		min_point.y = minf(min_point.y, point.y)
+		max_point.x = maxf(max_point.x, point.x)
+		max_point.y = maxf(max_point.y, point.y)
+	return Rect2(min_point, max_point - min_point)
+
+
+static func _append_path_points(markup: String, points: Array[Vector2]) -> void:
+	var regex := RegEx.new()
+	regex.compile("\\bd\\s*=\\s*['\\\"]([^'\\\"]+)['\\\"]")
+	for match_result in regex.search_all(markup):
+		var values = _number_values(match_result.get_string(1))
+		for index in range(0, values.size() - 1, 2):
+			points.append(Vector2(values[index], values[index + 1]))
+
+
+static func _append_rect_points(markup: String, points: Array[Vector2]) -> void:
+	for tag in _shape_tags(markup, "rect"):
+		var x = _svg_attr_float(tag, "x", 0.0)
+		var y = _svg_attr_float(tag, "y", 0.0)
+		var width = _svg_attr_float(tag, "width", 0.0)
+		var height = _svg_attr_float(tag, "height", 0.0)
+		points.append(Vector2(x, y))
+		points.append(Vector2(x + width, y + height))
+
+
+static func _append_circle_points(markup: String, points: Array[Vector2]) -> void:
+	for tag in _shape_tags(markup, "circle"):
+		var cx = _svg_attr_float(tag, "cx", 0.0)
+		var cy = _svg_attr_float(tag, "cy", 0.0)
+		var radius = _svg_attr_float(tag, "r", 0.0)
+		points.append(Vector2(cx - radius, cy - radius))
+		points.append(Vector2(cx + radius, cy + radius))
+
+
+static func _append_ellipse_points(markup: String, points: Array[Vector2]) -> void:
+	for tag in _shape_tags(markup, "ellipse"):
+		var cx = _svg_attr_float(tag, "cx", 0.0)
+		var cy = _svg_attr_float(tag, "cy", 0.0)
+		var rx = _svg_attr_float(tag, "rx", 0.0)
+		var ry = _svg_attr_float(tag, "ry", 0.0)
+		points.append(Vector2(cx - rx, cy - ry))
+		points.append(Vector2(cx + rx, cy + ry))
+
+
+static func _append_line_points(markup: String, points: Array[Vector2]) -> void:
+	for tag in _shape_tags(markup, "line"):
+		points.append(Vector2(_svg_attr_float(tag, "x1", 0.0), _svg_attr_float(tag, "y1", 0.0)))
+		points.append(Vector2(_svg_attr_float(tag, "x2", 0.0), _svg_attr_float(tag, "y2", 0.0)))
+
+
+static func _shape_tags(markup: String, tag_name: String) -> Array[String]:
+	var tags: Array[String] = []
+	var regex := RegEx.new()
+	regex.compile("<\\s*%s\\b[^>]*>" % tag_name)
+	for match_result in regex.search_all(markup):
+		tags.append(match_result.get_string(0))
+	return tags
+
+
+static func _svg_attr_float(tag: String, attribute: String, fallback: float) -> float:
+	var regex := RegEx.new()
+	regex.compile("\\b%s\\s*=\\s*['\\\"]([^'\\\"]+)['\\\"]" % attribute)
+	var match_result = regex.search(tag)
+	if match_result == null:
+		return fallback
+	return float(match_result.get_string(1))
+
+
+static func _number_values(text: String) -> Array[float]:
+	var values: Array[float] = []
+	var regex := RegEx.new()
+	regex.compile("[-+]?\\d*\\.?\\d+(?:[eE][-+]?\\d+)?")
+	for match_result in regex.search_all(text):
+		values.append(float(match_result.get_string(0)))
+	return values
+
+
+static func _transformed_rect(rect: Rect2, transform: Transform2D) -> Rect2:
+	var corners = [
+		rect.position,
+		Vector2(rect.position.x + rect.size.x, rect.position.y),
+		rect.position + rect.size,
+		Vector2(rect.position.x, rect.position.y + rect.size.y),
+	]
+	var first_point: Vector2 = transform * corners[0]
+	var min_point := first_point
+	var max_point := first_point
+	for corner in corners:
+		var point: Vector2 = transform * corner
+		min_point.x = minf(min_point.x, point.x)
+		min_point.y = minf(min_point.y, point.y)
+		max_point.x = maxf(max_point.x, point.x)
+		max_point.y = maxf(max_point.y, point.y)
+	return Rect2(min_point, max_point - min_point)
+
+
+static func _around_point_matrix(point: Vector2, matrix: Transform2D) -> Transform2D:
+	return _translation_matrix(point) * matrix * _translation_matrix(-point)
+
+
+static func _translation_matrix(offset: Vector2) -> Transform2D:
+	return Transform2D(Vector2(1.0, 0.0), Vector2(0.0, 1.0), offset)
+
+
+static func _rotation_matrix(degrees: float) -> Transform2D:
+	return Transform2D(deg_to_rad(degrees), Vector2.ZERO)
+
+
+static func _scale_matrix(scale: Vector2) -> Transform2D:
+	return Transform2D(Vector2(scale.x, 0.0), Vector2(0.0, scale.y), Vector2.ZERO)
+
+
+static func _skew_x_matrix(degrees: float) -> Transform2D:
+	return Transform2D(Vector2(1.0, 0.0), Vector2(tan(deg_to_rad(degrees)), 1.0), Vector2.ZERO)
 
 
 static func _transform_chain_for_target(repo: ContentRepository, variant: String, target: String, seen: Dictionary = {}) -> Array[String]:

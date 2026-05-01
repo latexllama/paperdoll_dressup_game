@@ -26,18 +26,53 @@ func configure(next_repo: ContentRepository, next_texture_cache: Variant) -> voi
 
 
 func set_available_items(items: Array) -> void:
+	var active_drag_item_id = _hidden_drag_item_id
 	_available_items = items.duplicate(true)
-	_hidden_drag_item_id = ""
+	if active_drag_item_id != "" and _contains_available_item(active_drag_item_id):
+		_hidden_drag_item_id = active_drag_item_id
+	else:
+		_hidden_drag_item_id = ""
 	_refresh_items()
 
 
 func _can_drop_data(_at_position: Vector2, data: Variant) -> bool:
-	return data is Dictionary and String(data.get("kind", "")) == "equipped_item"
+	if not (data is Dictionary):
+		return false
+	var item_id = String(data.get("item_id", ""))
+	return String(data.get("kind", "")) == "equipped_item" and item_id != "" and repo != null and repo.has_wardrobe_item(item_id)
 
 
 func _drop_data(_at_position: Vector2, data: Variant) -> void:
-	if data is Dictionary:
+	if _can_drop_data(_at_position, data):
 		equipped_item_returned.emit(String(data.get("item_id", "")))
+
+
+func is_active_wardrobe_drag(item_id: String = "") -> bool:
+	if _hidden_drag_item_id == "":
+		return false
+	return item_id == "" or _hidden_drag_item_id == item_id
+
+
+func finish_active_wardrobe_drag(item_id: String) -> void:
+	if _hidden_drag_item_id == item_id:
+		_hidden_drag_item_id = ""
+
+
+func cancel_active_wardrobe_drag(item_id: String = "") -> void:
+	if _hidden_drag_item_id == "":
+		return
+	if item_id != "" and _hidden_drag_item_id != item_id:
+		return
+	var cancelled_item_id = _hidden_drag_item_id
+	_hidden_drag_item_id = ""
+	_refresh_items()
+	wardrobe_drag_cancelled.emit(cancelled_item_id)
+
+
+func _notification(what: int) -> void:
+	if what == NOTIFICATION_DRAG_END and _hidden_drag_item_id != "":
+		if not get_viewport().gui_is_drag_successful():
+			cancel_active_wardrobe_drag()
 
 
 func _build_categories() -> void:
@@ -80,6 +115,7 @@ func _refresh_items() -> void:
 		visible_count += 1
 	if _empty_label != null:
 		_empty_label.visible = visible_count == 0
+		_empty_label.text = "No wardrobe items available." if _active_slot == "all" else "No wardrobe items in %s." % _slot_label(_active_slot).to_lower()
 
 
 func _on_category_pressed(slot: String, button: Button) -> void:
@@ -91,15 +127,15 @@ func _on_category_pressed(slot: String, button: Button) -> void:
 
 
 func _on_tile_drag_started(item_id: String) -> void:
+	if item_id == "" or not _contains_available_item(item_id):
+		return
 	_hidden_drag_item_id = item_id
+	_refresh_items()
 	wardrobe_drag_started.emit(item_id)
 
 
 func _on_tile_drag_cancelled(item_id: String) -> void:
-	if _hidden_drag_item_id == item_id:
-		_hidden_drag_item_id = ""
-	_refresh_items()
-	wardrobe_drag_cancelled.emit(item_id)
+	cancel_active_wardrobe_drag(item_id)
 
 
 func _on_equipped_item_returned(item_id: String) -> void:
@@ -116,12 +152,21 @@ func _slot_label(slot: String) -> String:
 			return "Bottoms"
 		"shoes":
 			return "Footwear"
+		"hairAccessory":
+			return "Hair"
 		"faceAccessory":
 			return "Face"
 		"earAccessory":
-			return "Accessories"
+			return "Ears"
 		"horns":
 			return "Horns"
 		"tail":
 			return "Tail"
 	return slot.capitalize()
+
+
+func _contains_available_item(item_id: String) -> bool:
+	for item in _available_items:
+		if String(item.get("id", "")) == item_id:
+			return true
+	return false
