@@ -197,6 +197,42 @@ def tokenize_body_rig_colors(body_rig: dict[str, Any]) -> None:
                 part["variations"][variation_id] = replace_known_fills(markup, fill_map)
 
 
+def normalize_body_rig_lateral_markup(body_rig: dict[str, Any]) -> None:
+    for variant_data in body_rig.values():
+        parts = {
+            part.get("id"): part
+            for part in variant_data.get("parts", [])
+            if isinstance(part, dict)
+        }
+        for left_id, right_id in (("leftFoot", "rightFoot"),):
+            left = parts.get(left_id)
+            right = parts.get(right_id)
+            if not left or not right:
+                continue
+            left_center = markup_center_x(left.get("svgMarkup", ""))
+            right_center = markup_center_x(right.get("svgMarkup", ""))
+            if left_center is not None and right_center is not None and left_center > right_center:
+                left["svgMarkup"], right["svgMarkup"] = right.get("svgMarkup", ""), left.get("svgMarkup", "")
+                left["variations"], right["variations"] = (
+                    right.get("variations", {}),
+                    left.get("variations", {}),
+                )
+
+
+def markup_center_x(markup: str) -> float | None:
+    cx_values = [
+        float(match.group(1))
+        for match in re.finditer(r"\bcx\s*=\s*['\"]\s*([-+]?(?:(?:\d*\.\d+)|(?:\d+\.?))(?:[eE][-+]?\d+)?)", markup)
+    ]
+    if cx_values:
+        return sum(cx_values) / len(cx_values)
+    numbers = [float(match.group(0)) for match in re.finditer(r"[-+]?(?:(?:\d*\.\d+)|(?:\d+\.?))(?:[eE][-+]?\d+)?", markup)]
+    if len(numbers) < 4:
+        return None
+    xs = numbers[0::2]
+    return (min(xs) + max(xs)) / 2
+
+
 def validate_outputs(outputs: dict[str, Any]) -> list[str]:
     errors: list[str] = []
     wardrobe = outputs["wardrobe.json"]
@@ -236,6 +272,19 @@ def validate_outputs(outputs: dict[str, Any]) -> list[str]:
                 errors.append(f"visual {visual.get('id')} piece {index} references missing asset {piece.get('assetId')}")
             if piece.get("target") not in rig_targets:
                 errors.append(f"visual {visual.get('id')} piece {index} references missing rig target {piece.get('target')}")
+    for variant_id, variant_data in body_rig.items():
+        parts = {
+            part.get("id"): part
+            for part in variant_data.get("parts", [])
+            if isinstance(part, dict)
+        }
+        left_foot = parts.get("leftFoot")
+        right_foot = parts.get("rightFoot")
+        if left_foot and right_foot:
+            left_center = markup_center_x(left_foot.get("svgMarkup", ""))
+            right_center = markup_center_x(right_foot.get("svgMarkup", ""))
+            if left_center is not None and right_center is not None and left_center > right_center:
+                errors.append(f"body rig variant {variant_id} has swapped leftFoot/rightFoot SVG markup")
     starting = outputs["starting_outfit.json"]
     if starting.get("poseId") not in pose_ids:
         errors.append(f"starting outfit references missing pose {starting.get('poseId')}")
@@ -261,6 +310,7 @@ def import_content(source_root: Path, project_root: Path, dry_run: bool = False)
         "\n\nexport type CtaSampleVariant",
     )
     tokenize_body_rig_colors(body_rig)
+    normalize_body_rig_lateral_markup(body_rig)
     cta_sample_assets = extract_json_const(
         cta_sample_source,
         "export const ctaSampleAssets = ",

@@ -72,7 +72,6 @@ func _ready() -> void:
 	_delete_button.pressed.connect(_on_delete_pressed)
 	_lattice_canvas.point_moved.connect(_on_lattice_point_moved)
 	_pose_canvas.part_selected.connect(_on_pose_canvas_part_selected)
-	_pose_canvas.part_transform_changed.connect(_on_pose_canvas_part_transform_changed)
 	_pose_canvas.ik_chain_changed.connect(_on_pose_canvas_ik_chain_changed)
 	_pose_canvas.edit_finished.connect(_on_pose_canvas_edit_finished)
 	_pose_canvas.status_changed.connect(_set_status)
@@ -938,7 +937,7 @@ func _refresh_pose_preview(pose: Dictionary) -> void:
 		"show_rest_ghost": _pose_show_rest_ghost,
 		"position_snap": _pose_position_snap,
 	})
-	_preview_status.text = "Pose preview: drag body-part handles to move them, drag hands for arm IK."
+	_preview_status.text = "Pose preview: click handles to select parts; drag hands or feet for IK posing."
 
 
 func _on_validate_pressed() -> void:
@@ -996,15 +995,6 @@ func _on_pose_canvas_part_selected(part_id: String) -> void:
 		return
 	_selected_pose_part = part_id
 	_render_form()
-
-
-func _on_pose_canvas_part_transform_changed(part_id: String, transform_patch: Dictionary) -> void:
-	var pose = _selected_record()
-	if pose.is_empty():
-		return
-	_selected_pose_part = part_id
-	_set_pose_part_transform(pose, part_id, transform_patch)
-	_mark_changed("Moved pose handle.", false, false)
 
 
 func _on_pose_canvas_ik_chain_changed(_side: String, transform_patches: Dictionary) -> void:

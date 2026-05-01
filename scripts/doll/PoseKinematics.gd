@@ -13,6 +13,12 @@ const ARM_CHAINS := {
 	"left": {"upper": "leftArm", "middle": "leftForearm", "end": "leftHand"},
 	"right": {"upper": "rightArm", "middle": "rightForearm", "end": "rightHand"},
 }
+const LIMB_CHAINS := {
+	"leftArm": {"upper": "leftArm", "middle": "leftForearm", "end": "leftHand", "side": "left"},
+	"rightArm": {"upper": "rightArm", "middle": "rightForearm", "end": "rightHand", "side": "right"},
+	"leftLeg": {"upper": "leftThigh", "middle": "leftShank", "end": "leftFoot", "side": "left"},
+	"rightLeg": {"upper": "rightThigh", "middle": "rightShank", "end": "rightFoot", "side": "right"},
+}
 
 
 static func pivot_for(repo: ContentRepository, variant: String, part_id: String) -> Vector2:
@@ -56,7 +62,14 @@ static func apply_transform_to_point(point: Vector2, transform: Dictionary, pivo
 static func solve_arm_ik(repo: ContentRepository, variant: String, pose: Dictionary, side: String, target: Vector2) -> Dictionary:
 	if not ARM_CHAINS.has(side):
 		return {"ok": false, "errors": ["Unknown IK arm side \"%s\"." % side], "updates": {}}
-	var chain: Dictionary = ARM_CHAINS[side]
+	var chain_id = "%sArm" % side
+	return solve_limb_ik(repo, variant, pose, chain_id, target)
+
+
+static func solve_limb_ik(repo: ContentRepository, variant: String, pose: Dictionary, chain_id: String, target: Vector2) -> Dictionary:
+	if not LIMB_CHAINS.has(chain_id):
+		return {"ok": false, "errors": ["Unknown IK chain \"%s\"." % chain_id], "updates": {}}
+	var chain: Dictionary = LIMB_CHAINS[chain_id]
 	var upper_id = String(chain["upper"])
 	var middle_id = String(chain["middle"])
 	var end_id = String(chain["end"])
@@ -66,7 +79,7 @@ static func solve_arm_ik(repo: ContentRepository, variant: String, pose: Diction
 	var upper_length = shoulder_rest.distance_to(elbow_rest)
 	var lower_length = elbow_rest.distance_to(hand_rest)
 	if upper_length <= 0.001 or lower_length <= 0.001:
-		return {"ok": false, "errors": ["IK arm chain \"%s\" has invalid segment lengths." % side], "updates": {}}
+		return {"ok": false, "errors": ["IK chain \"%s\" has invalid segment lengths." % chain_id], "updates": {}}
 
 	var shoulder = pivot_position(repo, variant, pose, upper_id)
 	var target_vector = target - shoulder
@@ -81,7 +94,7 @@ static func solve_arm_ik(repo: ContentRepository, variant: String, pose: Diction
 	var base_angle = (clamped_target - shoulder).angle()
 	var shoulder_cos = clampf((upper_length * upper_length + distance * distance - lower_length * lower_length) / (2.0 * upper_length * distance), -1.0, 1.0)
 	var shoulder_offset = acos(shoulder_cos)
-	var bend_sign = _preferred_bend_sign(shoulder, clamped_target, pivot_position(repo, variant, pose, middle_id), side)
+	var bend_sign = _preferred_bend_sign(shoulder, clamped_target, pivot_position(repo, variant, pose, middle_id), String(chain["side"]))
 	var upper_abs = base_angle + shoulder_offset * bend_sign
 	var elbow = shoulder + Vector2.from_angle(upper_abs) * upper_length
 	var lower_abs = (clamped_target - elbow).angle()
@@ -103,13 +116,6 @@ static func solve_arm_ik(repo: ContentRepository, variant: String, pose: Diction
 		"target": clamped_target,
 		"elbow": elbow,
 	}
-
-
-static func moved_transform(pose: Dictionary, part_id: String, delta: Vector2) -> Dictionary:
-	var transform = transform_for(pose, part_id)
-	transform["x"] = float(transform.get("x", 0.0)) + delta.x
-	transform["y"] = float(transform.get("y", 0.0)) + delta.y
-	return cleaned_transform(transform)
 
 
 static func cleaned_transform(transform: Dictionary) -> Dictionary:

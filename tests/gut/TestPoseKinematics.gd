@@ -62,6 +62,16 @@ func test_invalid_ik_side_is_rejected() -> void:
 	assert_false(result.get("ok", true))
 
 
+func test_leg_ik_updates_thigh_and_shank() -> void:
+	var pose := {"parts": {}, "sprites": {}}
+	var hip = PoseKinematicsScript.pivot_for(repo, "female", "leftThigh")
+	var result = PoseKinematicsScript.solve_limb_ik(repo, "female", pose, "leftLeg", hip + Vector2(-140.0, 760.0))
+
+	assert_true(result.get("ok", false), "; ".join(result.get("errors", [])))
+	assert_true(result["updates"].has("leftThigh"))
+	assert_true(result["updates"].has("leftShank"))
+
+
 func test_pose_bend_emits_visible_svg_transform() -> void:
 	var pose = {"id": "bend-test", "name": "Bend Test", "parts": {"leftArm": {"bend": 12.0}}, "sprites": {}}
 	repo.poses.append(pose)

@@ -60,7 +60,7 @@ Wardrobe items and equipment visuals preview on the doll using a temporary outfi
 
 The body rig lattice variation editor uses `res://scripts/ui/LatticeCanvas.gd`. It draws the selected source SVG, grid lines, and draggable control points; moving a point updates the selected lattice variation in the draft.
 
-The pose editor uses `res://scenes/ui/PosePreviewCanvas.tscn` and `res://scripts/doll/PoseKinematics.gd`. The canvas draws pose handles and guide lines over the rendered doll. Clicking a handle selects the part without dirtying the draft. Dragging a normal part handle writes a part `x`/`y` transform; dragging a hand handle solves the matching two-bone arm chain and writes upper-arm plus forearm rotation transforms. Numeric fields and sliders remain available for exact edits.
+The pose editor uses `res://scenes/ui/PosePreviewCanvas.tscn` and `res://scripts/doll/PoseKinematics.gd`. The canvas draws pose handles and guide lines over the rendered doll. Clicking a handle selects the part without dirtying the draft. Direct dragging is limited to hand and foot handles: hands solve the matching two-bone arm chain, and feet solve the matching thigh/shank chain. Numeric fields and sliders remain available for exact edits on any selected part.
 
 Rendering a form should not create missing pose transforms or asset variant defaults. Missing optional authoring structures are surfaced as editor notes and must be created through explicit add/edit controls.
 
