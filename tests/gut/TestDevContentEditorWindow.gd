@@ -1,5 +1,6 @@
 extends GutTest
 
+const PoseKinematicsScript := preload("res://scripts/doll/PoseKinematics.gd")
 
 func test_close_request_hides_dev_editor_window() -> void:
 	var editor = load("res://scenes/ui/DevContentEditor.tscn").instantiate()
@@ -50,3 +51,63 @@ func test_pose_form_selection_does_not_create_missing_transform() -> void:
 
 	assert_false(editor._draft.poses[0]["parts"].has("headNub"))
 	assert_false(editor._draft.is_dirty())
+
+
+func test_pose_canvas_selection_does_not_dirty_draft() -> void:
+	var editor = load("res://scenes/ui/DevContentEditor.tscn").instantiate()
+	add_child_autoqfree(editor)
+	await get_tree().process_frame
+	var repo := ContentRepository.new()
+	var validation = repo.load_all()
+	assert_true(validation.get("ok", false), "; ".join(validation.get("errors", [])))
+	editor.configure(repo, SvgTextureCache.new())
+	editor._section = "poses"
+	editor._selected_id = String(editor._draft.poses[0]["id"])
+	editor._draft.mark_clean()
+
+	editor._on_pose_canvas_part_selected("leftHand")
+
+	assert_eq(editor._selected_pose_part, "leftHand")
+	assert_false(editor._draft.is_dirty())
+
+
+func test_pose_canvas_drag_creates_transform_and_marks_dirty() -> void:
+	var editor = load("res://scenes/ui/DevContentEditor.tscn").instantiate()
+	add_child_autoqfree(editor)
+	await get_tree().process_frame
+	var repo := ContentRepository.new()
+	var validation = repo.load_all()
+	assert_true(validation.get("ok", false), "; ".join(validation.get("errors", [])))
+	editor.configure(repo, SvgTextureCache.new())
+	editor._section = "poses"
+	editor._selected_id = String(editor._draft.poses[0]["id"])
+	editor._draft.mark_clean()
+
+	editor._on_pose_canvas_part_transform_changed("headNub", {"x": 24.0})
+
+	assert_true(editor._draft.poses[0]["parts"].has("headNub"))
+	assert_eq(float(editor._draft.poses[0]["parts"]["headNub"].get("x", 0.0)), 24.0)
+	assert_true(editor._draft.is_dirty())
+
+
+func test_pose_canvas_ik_updates_upper_and_forearm_transforms() -> void:
+	var editor = load("res://scenes/ui/DevContentEditor.tscn").instantiate()
+	add_child_autoqfree(editor)
+	await get_tree().process_frame
+	var repo := ContentRepository.new()
+	var validation = repo.load_all()
+	assert_true(validation.get("ok", false), "; ".join(validation.get("errors", [])))
+	editor.configure(repo, SvgTextureCache.new())
+	editor._section = "poses"
+	editor._selected_id = String(editor._draft.poses[0]["id"])
+	var pose = editor._draft.poses[0]
+	var shoulder = PoseKinematicsScript.pivot_for(repo, "female", "leftArm")
+	var ik_result = PoseKinematicsScript.solve_arm_ik(repo, "female", pose, "left", shoulder + Vector2(-340.0, 220.0))
+	assert_true(ik_result.get("ok", false), "; ".join(ik_result.get("errors", [])))
+	editor._draft.mark_clean()
+
+	editor._on_pose_canvas_ik_chain_changed("left", ik_result.get("updates", {}))
+
+	assert_true(pose["parts"].has("leftArm"))
+	assert_true(pose["parts"].has("leftForearm"))
+	assert_true(editor._draft.is_dirty())

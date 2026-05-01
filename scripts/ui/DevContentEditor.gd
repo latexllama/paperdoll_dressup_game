@@ -5,6 +5,7 @@ signal content_saved
 
 const OutfitStateScript := preload("res://scripts/game/OutfitState.gd")
 const DevEditorDraftScript := preload("res://scripts/ui/DevEditorDraft.gd")
+const PoseKinematicsScript := preload("res://scripts/doll/PoseKinematics.gd")
 const Models := preload("res://scripts/ui/DevEditorModels.gd")
 
 const SECTION_WARDROBE := "wardrobe"
@@ -34,6 +35,10 @@ var _selected_lattice_id := ""
 var _selected_pose_part := "body"
 var _selected_asset_variant := "female"
 var _asset_import_target_id := ""
+var _pose_show_pivots := true
+var _pose_show_guides := true
+var _pose_show_rest_ghost := true
+var _pose_position_snap := 1.0
 
 @onready var _section_option: OptionButton = %SectionOption
 @onready var _validate_button: Button = %ValidateButton
@@ -48,6 +53,7 @@ var _asset_import_target_id := ""
 @onready var _form_content: VBoxContainer = %FormContent
 @onready var _preview: TextureRect = %PreviewTexture
 @onready var _preview_status: Label = %PreviewStatus
+@onready var _pose_canvas = %PosePreviewCanvas
 @onready var _lattice_canvas: Control = %LatticeCanvas
 @onready var _import_dialog: FileDialog = %SvgImportDialog
 @onready var _discard_dialog: ConfirmationDialog = %DiscardDraftDialog
@@ -65,9 +71,15 @@ func _ready() -> void:
 	_duplicate_button.pressed.connect(_on_duplicate_pressed)
 	_delete_button.pressed.connect(_on_delete_pressed)
 	_lattice_canvas.point_moved.connect(_on_lattice_point_moved)
+	_pose_canvas.part_selected.connect(_on_pose_canvas_part_selected)
+	_pose_canvas.part_transform_changed.connect(_on_pose_canvas_part_transform_changed)
+	_pose_canvas.ik_chain_changed.connect(_on_pose_canvas_ik_chain_changed)
+	_pose_canvas.edit_finished.connect(_on_pose_canvas_edit_finished)
+	_pose_canvas.status_changed.connect(_set_status)
 	_import_dialog.file_selected.connect(_on_svg_file_selected)
 	_discard_dialog.confirmed.connect(_close_and_discard_draft)
 	_lattice_canvas.visible = false
+	_pose_canvas.visible = false
 
 
 func _on_close_requested() -> void:
@@ -260,8 +272,10 @@ func _after_collection_edit(message: String) -> void:
 func _render_form() -> void:
 	_clear_children(_form_content)
 	_preview.texture = null
+	_preview.visible = true
 	_preview_status.text = ""
 	_lattice_canvas.visible = false
+	_pose_canvas.visible = false
 	if repo == null:
 		_set_status("Content repository is not configured.")
 		return
@@ -704,6 +718,7 @@ func _build_pose_form() -> void:
 		_selected_pose_part = value
 		_render_form()
 	)
+	_build_pose_canvas_tools(pose)
 	var parts: Dictionary = pose["parts"]
 	if not parts.has(_selected_pose_part):
 		_add_note("No transform is authored for this part.")
@@ -731,6 +746,57 @@ func _build_pose_form() -> void:
 	_add_title("Sprite Overrides")
 	_build_sprite_override_controls(pose)
 	_refresh_pose_preview(pose)
+
+
+func _build_pose_canvas_tools(pose: Dictionary) -> void:
+	_add_title("Interactive Preview")
+	var toggle_row = _add_row()
+	var pivots := CheckBox.new()
+	pivots.text = "Pivots"
+	pivots.button_pressed = _pose_show_pivots
+	toggle_row.add_child(pivots)
+	pivots.toggled.connect(func(value: bool) -> void:
+		_pose_show_pivots = value
+		_refresh_pose_preview(pose)
+	)
+	var guides := CheckBox.new()
+	guides.text = "Guides"
+	guides.button_pressed = _pose_show_guides
+	toggle_row.add_child(guides)
+	guides.toggled.connect(func(value: bool) -> void:
+		_pose_show_guides = value
+		_refresh_pose_preview(pose)
+	)
+	var ghost := CheckBox.new()
+	ghost.text = "Rest ghost"
+	ghost.button_pressed = _pose_show_rest_ghost
+	toggle_row.add_child(ghost)
+	ghost.toggled.connect(func(value: bool) -> void:
+		_pose_show_rest_ghost = value
+		_refresh_pose_preview(pose)
+	)
+	_add_number("Drag Snap", _pose_position_snap, 1.0, 100.0, 1.0, func(value: float) -> void:
+		_pose_position_snap = value
+		_refresh_pose_preview(pose)
+	, true)
+	var action_row = _add_button_row()
+	action_row.add_child(_button("Reset Selected Part", func() -> void:
+		if pose.get("parts", {}).has(_selected_pose_part):
+			pose["parts"].erase(_selected_pose_part)
+			_mark_changed("Reset selected pose part.", true, true)
+		else:
+			_set_status("Selected part has no authored transform.")
+	))
+	action_row.add_child(_button("Reset Full Pose", func() -> void:
+		pose["parts"] = {}
+		_mark_changed("Reset pose transforms.", true, true)
+	))
+	action_row.add_child(_button("Mirror Selected Left/Right", func() -> void:
+		if _mirror_selected_pose_part(pose):
+			_mark_changed("Mirrored selected pose part.", true, true)
+		else:
+			_set_status("Select a left/right part with an authored transform to mirror.")
+	))
 
 
 func _build_sprite_override_controls(pose: Dictionary) -> void:
@@ -787,6 +853,8 @@ func _add_coverage_view(visual: Dictionary) -> void:
 func _refresh_wardrobe_preview(item: Dictionary) -> void:
 	if texture_cache == null:
 		return
+	_preview.visible = true
+	_pose_canvas.visible = false
 	var draft_repo = _draft.repository_clone()
 	var outfit = OutfitStateScript.new(draft_repo.starting_outfit_snapshot())
 	outfit.equipped_item_ids.clear()
@@ -798,6 +866,8 @@ func _refresh_wardrobe_preview(item: Dictionary) -> void:
 func _refresh_visual_preview(visual: Dictionary) -> void:
 	if texture_cache == null:
 		return
+	_preview.visible = true
+	_pose_canvas.visible = false
 	var draft_repo = _draft.repository_clone()
 	var preview_item := {
 		"id": "__preview_visual__",
@@ -819,6 +889,8 @@ func _refresh_visual_preview(visual: Dictionary) -> void:
 func _refresh_asset_preview(asset: Dictionary) -> void:
 	if texture_cache == null:
 		return
+	_preview.visible = true
+	_pose_canvas.visible = false
 	var markup = _asset_markup_for_preview(asset)
 	var safety = _svg_safety_result(markup)
 	if not safety.get("ok", false):
@@ -840,6 +912,8 @@ func _refresh_asset_preview(asset: Dictionary) -> void:
 func _refresh_body_preview() -> void:
 	if texture_cache == null:
 		return
+	_preview.visible = true
+	_pose_canvas.visible = false
 	var draft_repo = _draft.repository_clone()
 	var outfit = OutfitStateScript.new(draft_repo.starting_outfit_snapshot())
 	outfit.variant = _selected_variant
@@ -850,12 +924,21 @@ func _refresh_body_preview() -> void:
 func _refresh_pose_preview(pose: Dictionary) -> void:
 	if texture_cache == null:
 		return
+	_preview.texture = null
+	_preview.visible = false
+	_pose_canvas.visible = true
 	var draft_repo = _draft.repository_clone()
 	var outfit = OutfitStateScript.new(draft_repo.starting_outfit_snapshot())
 	outfit.variant = _selected_variant
 	outfit.pose_id = String(pose.get("id", outfit.pose_id))
-	_preview.texture = texture_cache.texture_from_svg(DollSvgBuilder.build_svg(draft_repo, outfit), 0.18)
-	_preview_status.text = "Pose preview."
+	var texture = texture_cache.texture_from_svg(DollSvgBuilder.build_svg(draft_repo, outfit), 0.18)
+	_pose_canvas.configure(draft_repo, pose, outfit.variant, _selected_pose_part, texture, {
+		"show_pivots": _pose_show_pivots,
+		"show_guides": _pose_show_guides,
+		"show_rest_ghost": _pose_show_rest_ghost,
+		"position_snap": _pose_position_snap,
+	})
+	_preview_status.text = "Pose preview: drag body-part handles to move them, drag hands for arm IK."
 
 
 func _on_validate_pressed() -> void:
@@ -906,6 +989,36 @@ func _on_svg_file_selected(path: String) -> void:
 
 func _on_lattice_point_moved(_index: int, _point: Dictionary) -> void:
 	_mark_changed("Moved lattice point.", false, false)
+
+
+func _on_pose_canvas_part_selected(part_id: String) -> void:
+	if _section != SECTION_POSES:
+		return
+	_selected_pose_part = part_id
+	_render_form()
+
+
+func _on_pose_canvas_part_transform_changed(part_id: String, transform_patch: Dictionary) -> void:
+	var pose = _selected_record()
+	if pose.is_empty():
+		return
+	_selected_pose_part = part_id
+	_set_pose_part_transform(pose, part_id, transform_patch)
+	_mark_changed("Moved pose handle.", false, false)
+
+
+func _on_pose_canvas_ik_chain_changed(_side: String, transform_patches: Dictionary) -> void:
+	var pose = _selected_record()
+	if pose.is_empty():
+		return
+	for part_id in transform_patches.keys():
+		_set_pose_part_transform(pose, String(part_id), transform_patches[part_id])
+	_mark_changed("Updated arm IK.", false, false)
+
+
+func _on_pose_canvas_edit_finished() -> void:
+	if _section == SECTION_POSES:
+		_render_form()
 
 
 func _report_result(success_message: String, result: Dictionary) -> void:
@@ -1037,6 +1150,39 @@ func _set_optional_string(owner: Dictionary, key: String, value: String) -> void
 		owner.erase(key)
 	else:
 		owner[key] = value
+
+
+func _set_pose_part_transform(pose: Dictionary, part_id: String, transform: Dictionary) -> void:
+	if not pose.has("parts") or not (pose["parts"] is Dictionary):
+		return
+	var cleaned = PoseKinematicsScript.cleaned_transform(transform)
+	if cleaned.is_empty():
+		pose["parts"].erase(part_id)
+	else:
+		pose["parts"][part_id] = cleaned
+
+
+func _mirror_selected_pose_part(pose: Dictionary) -> bool:
+	if not pose.has("parts") or not (pose["parts"] is Dictionary):
+		return false
+	var counterpart = _counterpart_part_id(_selected_pose_part)
+	if counterpart == "" or not pose["parts"].has(_selected_pose_part):
+		return false
+	var transform = PoseKinematicsScript.transform_for(pose, _selected_pose_part)
+	transform["x"] = -float(transform.get("x", 0.0))
+	transform["rotate"] = -float(transform.get("rotate", 0.0))
+	transform["bend"] = -float(transform.get("bend", 0.0))
+	pose["parts"][counterpart] = PoseKinematicsScript.cleaned_transform(transform)
+	_selected_pose_part = counterpart
+	return true
+
+
+func _counterpart_part_id(part_id: String) -> String:
+	if part_id.begins_with("left"):
+		return "right%s" % part_id.substr(4)
+	if part_id.begins_with("right"):
+		return "left%s" % part_id.substr(5)
+	return ""
 
 
 func _svg_safety_result(markup: String) -> Dictionary:

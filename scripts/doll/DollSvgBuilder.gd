@@ -296,12 +296,25 @@ static func _transform_for(pose: Dictionary, part_id: String, pivot: Dictionary)
 	var rotate = float(transform.get("rotate", 0.0))
 	var scale_x = float(transform.get("scaleX", 1.0))
 	var scale_y = float(transform.get("scaleY", 1.0))
-	return "translate(%s %s) rotate(%s %s %s) scale(%s %s)" % [
+	var pivot_x = float(pivot["x"])
+	var pivot_y = float(pivot["y"])
+	var bend = float(transform.get("bend", 0.0))
+	var bend_transform := ""
+	if not is_equal_approx(bend, 0.0):
+		bend_transform = " translate(%s %s) skewX(%s) translate(%s %s)" % [
+			_num(pivot_x),
+			_num(pivot_y),
+			_num(bend),
+			_num(-pivot_x),
+			_num(-pivot_y),
+		]
+	return "translate(%s %s) rotate(%s %s %s)%s scale(%s %s)" % [
 		_num(x),
 		_num(y),
 		_num(rotate),
-		_num(float(pivot["x"])),
-		_num(float(pivot["y"])),
+		_num(pivot_x),
+		_num(pivot_y),
+		bend_transform,
 		_num(scale_x),
 		_num(scale_y),
 	]

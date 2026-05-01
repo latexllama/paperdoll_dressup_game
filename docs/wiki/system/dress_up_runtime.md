@@ -35,6 +35,8 @@ Loaded outfits are validated against `ContentRepository` before being applied. M
 
 `SvgTextureCache` keeps an LRU-bounded runtime texture cache and should be cleared after source content reloads.
 
+Pose transforms support `x`, `y`, `rotate`, `scaleX`, `scaleY`, and `bend`. Runtime bend is a lightweight pivot-centered SVG `skewX()` transform so the Dev Editor bend slider has visible output; lattice deformation remains the body-part variation system for authored shape changes.
+
 ## Validation
 
 Targeted tests:
@@ -45,6 +47,7 @@ Targeted tests:
 - `res://tests/gut/TestContentValidation.gd`
 - `res://tests/gut/TestSvgSafety.gd`
 - `res://tests/gut/TestLattice.gd`
+- `res://tests/gut/TestPoseKinematics.gd`
 
 Full validation can be run with:
 
