@@ -2,6 +2,76 @@ class_name ContentRepository
 extends RefCounted
 
 const CONTENT_DIR := "res://content"
+const REQUIRED_BODY_PART_IDS := [
+	"body",
+	"hip",
+	"torso",
+	"neck",
+	"head",
+	"headNub",
+	"leftArm",
+	"leftForearm",
+	"leftHand",
+	"rightArm",
+	"rightForearm",
+	"rightHand",
+	"leftThigh",
+	"leftShank",
+	"leftFoot",
+	"leftToe",
+	"rightThigh",
+	"rightShank",
+	"rightFoot",
+	"rightToe",
+	"backHair",
+	"frontHair",
+	"face",
+	"leftEye",
+	"rightEye",
+	"leftBrow",
+	"rightBrow",
+	"mouth",
+	"nose",
+	"leftEar",
+	"rightEar",
+	"horns",
+	"tail",
+]
+const REQUIRED_BODY_PART_DEFAULTS := {
+	"body": {"parentId": "", "layer": "body"},
+	"hip": {"parentId": "body", "layer": "body"},
+	"torso": {"parentId": "hip", "layer": "body"},
+	"neck": {"parentId": "torso", "layer": "body"},
+	"head": {"parentId": "neck", "layer": "head"},
+	"headNub": {"parentId": "head", "layer": "head"},
+	"leftArm": {"parentId": "torso", "layer": "upperLimbs"},
+	"leftForearm": {"parentId": "leftArm", "layer": "frontLimbs"},
+	"leftHand": {"parentId": "leftForearm", "layer": "frontLimbs"},
+	"rightArm": {"parentId": "torso", "layer": "upperLimbs"},
+	"rightForearm": {"parentId": "rightArm", "layer": "frontLimbs"},
+	"rightHand": {"parentId": "rightForearm", "layer": "frontLimbs"},
+	"leftThigh": {"parentId": "hip", "layer": "legs"},
+	"leftShank": {"parentId": "leftThigh", "layer": "legs"},
+	"leftFoot": {"parentId": "leftShank", "layer": "frontLimbs"},
+	"leftToe": {"parentId": "leftFoot", "layer": "frontLimbs"},
+	"rightThigh": {"parentId": "hip", "layer": "legs"},
+	"rightShank": {"parentId": "rightThigh", "layer": "legs"},
+	"rightFoot": {"parentId": "rightShank", "layer": "frontLimbs"},
+	"rightToe": {"parentId": "rightFoot", "layer": "frontLimbs"},
+	"backHair": {"parentId": "head", "layer": "back"},
+	"frontHair": {"parentId": "head", "layer": "front"},
+	"face": {"parentId": "head", "layer": "head"},
+	"leftEye": {"parentId": "face", "layer": "head"},
+	"rightEye": {"parentId": "face", "layer": "head"},
+	"leftBrow": {"parentId": "face", "layer": "head"},
+	"rightBrow": {"parentId": "face", "layer": "head"},
+	"mouth": {"parentId": "face", "layer": "head"},
+	"nose": {"parentId": "face", "layer": "head"},
+	"leftEar": {"parentId": "head", "layer": "head"},
+	"rightEar": {"parentId": "head", "layer": "head"},
+	"horns": {"parentId": "head", "layer": "front"},
+	"tail": {"parentId": "hip", "layer": "back"},
+}
 
 var content_dir := CONTENT_DIR
 var body_rig: Dictionary = {}
@@ -22,7 +92,7 @@ var _rig_part_by_variant: Dictionary = {}
 
 func load_all() -> Dictionary:
 	last_load_errors = []
-	body_rig = _load_json("body_rig.json", {}, TYPE_DICTIONARY)
+	body_rig = _normalize_body_rig(_load_json("body_rig.json", {}, TYPE_DICTIONARY))
 	equipment_assets = _load_json("equipment_assets.json", [], TYPE_ARRAY)
 	equipment_visuals = _load_json("equipment_visuals.json", [], TYPE_ARRAY)
 	wardrobe = _load_json("wardrobe.json", [], TYPE_ARRAY)
@@ -52,8 +122,9 @@ func save_collection(collection_name: String, value: Variant, validation_repo: C
 	var file_name = _file_name_for_collection(collection_name)
 	if file_name == "":
 		return {"ok": false, "errors": ["Unknown content collection: %s" % collection_name]}
+	var value_to_save = _normalized_collection_value(collection_name, value)
 	var validation_source = validation_repo if validation_repo != null else self
-	var validation = ContentValidator.validate_collection(validation_source, collection_name, value)
+	var validation = ContentValidator.validate_collection(validation_source, collection_name, value_to_save)
 	if not validation.get("ok", false):
 		return validation
 	var path = "%s/%s" % [content_dir, file_name]
@@ -61,12 +132,12 @@ func save_collection(collection_name: String, value: Variant, validation_repo: C
 	var file = FileAccess.open(temp_path, FileAccess.WRITE)
 	if file == null:
 		return {"ok": false, "errors": ["Could not open temporary %s for writing." % file_name]}
-	file.store_string(JSON.stringify(value, "  ") + "\n")
+	file.store_string(JSON.stringify(value_to_save, "  ") + "\n")
 	file.close()
 	var replace_result = _replace_file_with_temp(temp_path, path)
 	if not replace_result.get("ok", false):
 		return replace_result
-	set_collection(collection_name, value)
+	set_collection(collection_name, value_to_save)
 	_rebuild_indexes()
 	return {"ok": true, "errors": []}
 
@@ -78,7 +149,7 @@ func can_write_source_content() -> bool:
 func set_collection(collection_name: String, value: Variant) -> void:
 	match collection_name:
 		"body_rig":
-			body_rig = value
+			body_rig = _normalize_body_rig(value)
 		"equipment_assets":
 			equipment_assets = value
 		"equipment_visuals":
@@ -183,6 +254,59 @@ func _load_json(file_name: String, fallback: Variant, expected_type: int) -> Var
 		])
 		return fallback
 	return parsed
+
+
+func _normalized_collection_value(collection_name: String, raw_value: Variant) -> Variant:
+	if collection_name == "body_rig":
+		return _normalize_body_rig(raw_value)
+	return raw_value
+
+
+func _normalize_body_rig(raw_body_rig: Variant) -> Dictionary:
+	if not (raw_body_rig is Dictionary):
+		return {}
+	var normalized: Dictionary = raw_body_rig.duplicate(true)
+	for variant in normalized.keys():
+		var variant_data = normalized[variant]
+		if not (variant_data is Dictionary):
+			continue
+		var parts_value = variant_data.get("parts", [])
+		if not (parts_value is Array):
+			continue
+		var parts: Array = parts_value
+		var ids := {}
+		for part in parts:
+			if not (part is Dictionary):
+				continue
+			var part_id = String(part.get("id", ""))
+			if part_id != "":
+				ids[part_id] = true
+			if not part.has("variations") or not (part["variations"] is Dictionary):
+				part["variations"] = {}
+			if not part.has("latticeVariations") or not (part["latticeVariations"] is Dictionary):
+				part["latticeVariations"] = {}
+		for required_id in REQUIRED_BODY_PART_IDS:
+			if not ids.has(required_id):
+				parts.append(_default_body_part(required_id))
+				ids[required_id] = true
+	return normalized
+
+
+func _default_body_part(part_id: String) -> Dictionary:
+	var defaults = REQUIRED_BODY_PART_DEFAULTS.get(part_id, {"parentId": "", "layer": "body"})
+	var pivot = DollSvgBuilder.BASE_PIVOTS.get(part_id, {"x": 0.0, "y": 0.0})
+	return {
+		"id": part_id,
+		"layer": String(defaults.get("layer", "body")),
+		"parentId": String(defaults.get("parentId", "")),
+		"pivot": {
+			"x": float(pivot.get("x", 0.0)),
+			"y": float(pivot.get("y", 0.0)),
+		},
+		"svgMarkup": "<g/>",
+		"variations": {},
+		"latticeVariations": {},
+	}
 
 
 func _replace_file_with_temp(temp_path: String, final_path: String) -> Dictionary:

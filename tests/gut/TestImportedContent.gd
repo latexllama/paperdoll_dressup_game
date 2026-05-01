@@ -17,12 +17,15 @@ func test_imported_content_loads_and_resolves_references() -> void:
 	var result = repo.load_all()
 
 	assert_true(result.get("ok", false), "; ".join(result.get("errors", [])))
-	assert_eq(repo.body_parts_for_variant("female").size(), 25)
-	assert_eq(repo.body_parts_for_variant("male").size(), 25)
+	assert_eq(repo.body_parts_for_variant("female").size(), ContentRepository.REQUIRED_BODY_PART_IDS.size())
+	assert_eq(repo.body_parts_for_variant("male").size(), ContentRepository.REQUIRED_BODY_PART_IDS.size())
 	assert_eq(repo.wardrobe.size(), 10)
 	assert_eq(repo.equipment_visuals.size(), 10)
 	assert_eq(repo.equipment_assets.size(), 23)
 	assert_eq(repo.poses.size(), 4)
+	for variant in ["female", "male"]:
+		for part_id in ContentRepository.REQUIRED_BODY_PART_IDS:
+			assert_false(repo.body_part(variant, part_id).is_empty(), "%s missing %s body rig part" % [variant, part_id])
 
 
 func test_imported_wardrobe_contains_only_dressup_fields() -> void:

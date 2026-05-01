@@ -21,8 +21,8 @@ Generated collections:
 
 ## Imported Scope
 
-- Female body rig parts: 25.
-- Male body rig parts: 25.
+- Female body rig parts: 33.
+- Male body rig parts: 33.
 - Wardrobe items: 10.
 - Equipment visuals: 10.
 - Equipment assets: 23 after combining CTA, original, and custom source assets.
@@ -45,5 +45,7 @@ py -3 tools\import_my_sim_content.py
 After import, run content validation through the GUT suite and run a headless Godot load when an engine executable is available.
 
 Dry-run and write modes validate generated references before source files are written. The import blocks duplicate ids, missing visual/asset/rig references, missing starting outfit references, and obsolete wardrobe fields.
+
+The importer normalizes body rigs so every renderer-known node from `DollSvgBuilder.BASE_PIVOTS` is available as a configurable body-rig part. Source SVG parts imported from `my_sim` keep their artwork; structural nodes that do not have authored SVG, such as toes, horns, tail, and helper head pivots, are emitted as empty `<g/>` parts with stable pivots, parent ids, layers, and empty variation maps.
 
 Imported body-rig hair, brow, and iris SVG fills are normalized to semantic color tokens where known so runtime appearance settings can recolor them. `DollSvgBuilder` still keeps a fallback fixed-fill map for older or manually authored SVG that has not been reimported.

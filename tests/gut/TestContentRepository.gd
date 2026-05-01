@@ -33,6 +33,24 @@ func test_load_all_reports_wrong_root_type() -> void:
 	assert_string_contains("; ".join(result.get("load_errors", [])), "wrong root type")
 
 
+func test_load_all_normalizes_required_body_rig_nodes() -> void:
+	var repo := ContentRepository.new()
+	repo.content_dir = TEST_DIR
+
+	var result = repo.load_all()
+
+	assert_true(result.get("ok", false), "; ".join(result.get("errors", [])))
+	for variant in ["female", "male"]:
+		for part_id in ["tail", "horns", "leftToe", "rightToe", "neck", "head", "headNub"]:
+			var part = repo.body_part(variant, part_id)
+			assert_false(part.is_empty(), "%s missing normalized body rig part %s" % [variant, part_id])
+			assert_true(part.get("variations", null) is Dictionary)
+			assert_true(part.get("latticeVariations", null) is Dictionary)
+	assert_eq(repo.body_part("female", "tail").get("parentId"), "hip")
+	assert_eq(repo.body_part("female", "tail").get("layer"), "back")
+	assert_eq(repo.body_part("female", "tail").get("svgMarkup"), "<g/>")
+
+
 func test_invalid_save_does_not_replace_existing_collection_file() -> void:
 	var repo := WritableRepository.new()
 	repo.content_dir = TEST_DIR

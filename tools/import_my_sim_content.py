@@ -40,41 +40,77 @@ IRIS_COLOR_FILLS = {
     "#3a5bd7": "var(--doll-eye)",
     "#828180": "var(--doll-eye)",
 }
-BASE_RIG_TARGETS = {
-    "body",
-    "hip",
-    "torso",
-    "neck",
-    "head",
-    "headNub",
-    "leftArm",
-    "leftForearm",
-    "leftHand",
-    "rightArm",
-    "rightForearm",
-    "rightHand",
-    "leftThigh",
-    "leftShank",
-    "leftFoot",
-    "leftToe",
-    "rightThigh",
-    "rightShank",
-    "rightFoot",
-    "rightToe",
-    "backHair",
-    "frontHair",
-    "face",
-    "leftEye",
-    "rightEye",
-    "leftBrow",
-    "rightBrow",
-    "mouth",
-    "nose",
-    "leftEar",
-    "rightEar",
-    "horns",
-    "tail",
+BASE_PIVOTS = {
+    "body": {"x": 1200.0, "y": 1620.0},
+    "hip": {"x": 1200.0, "y": 1760.0},
+    "torso": {"x": 1200.0, "y": 980.0},
+    "neck": {"x": 1200.0, "y": 850.0},
+    "head": {"x": 1200.0, "y": 555.0},
+    "headNub": {"x": 1200.0, "y": 555.0},
+    "leftArm": {"x": 1000.0, "y": 993.0},
+    "leftForearm": {"x": 667.0, "y": 999.0},
+    "leftHand": {"x": 349.0, "y": 1000.0},
+    "rightArm": {"x": 1401.0, "y": 994.0},
+    "rightForearm": {"x": 1733.0, "y": 999.0},
+    "rightHand": {"x": 2051.0, "y": 1000.0},
+    "leftThigh": {"x": 1096.0, "y": 1645.0},
+    "leftShank": {"x": 1104.0, "y": 2115.0},
+    "leftFoot": {"x": 1125.0, "y": 2645.0},
+    "leftToe": {"x": 1127.0, "y": 2779.0},
+    "rightThigh": {"x": 1301.0, "y": 1645.0},
+    "rightShank": {"x": 1293.0, "y": 2115.0},
+    "rightFoot": {"x": 1271.0, "y": 2645.0},
+    "rightToe": {"x": 1271.0, "y": 2779.0},
+    "backHair": {"x": 1200.0, "y": 500.0},
+    "frontHair": {"x": 1200.0, "y": 500.0},
+    "face": {"x": 1200.0, "y": 630.0},
+    "leftEye": {"x": 1090.0, "y": 570.0},
+    "rightEye": {"x": 1310.0, "y": 570.0},
+    "leftBrow": {"x": 1090.0, "y": 485.0},
+    "rightBrow": {"x": 1310.0, "y": 485.0},
+    "mouth": {"x": 1200.0, "y": 725.0},
+    "nose": {"x": 1200.0, "y": 645.0},
+    "leftEar": {"x": 955.0, "y": 600.0},
+    "rightEar": {"x": 1445.0, "y": 600.0},
+    "horns": {"x": 1200.0, "y": 310.0},
+    "tail": {"x": 1445.0, "y": 1810.0},
 }
+BASE_BODY_PART_DEFAULTS = {
+    "body": {"parentId": "", "layer": "body"},
+    "hip": {"parentId": "body", "layer": "body"},
+    "torso": {"parentId": "hip", "layer": "body"},
+    "neck": {"parentId": "torso", "layer": "body"},
+    "head": {"parentId": "neck", "layer": "head"},
+    "headNub": {"parentId": "head", "layer": "head"},
+    "leftArm": {"parentId": "torso", "layer": "upperLimbs"},
+    "leftForearm": {"parentId": "leftArm", "layer": "frontLimbs"},
+    "leftHand": {"parentId": "leftForearm", "layer": "frontLimbs"},
+    "rightArm": {"parentId": "torso", "layer": "upperLimbs"},
+    "rightForearm": {"parentId": "rightArm", "layer": "frontLimbs"},
+    "rightHand": {"parentId": "rightForearm", "layer": "frontLimbs"},
+    "leftThigh": {"parentId": "hip", "layer": "legs"},
+    "leftShank": {"parentId": "leftThigh", "layer": "legs"},
+    "leftFoot": {"parentId": "leftShank", "layer": "frontLimbs"},
+    "leftToe": {"parentId": "leftFoot", "layer": "frontLimbs"},
+    "rightThigh": {"parentId": "hip", "layer": "legs"},
+    "rightShank": {"parentId": "rightThigh", "layer": "legs"},
+    "rightFoot": {"parentId": "rightShank", "layer": "frontLimbs"},
+    "rightToe": {"parentId": "rightFoot", "layer": "frontLimbs"},
+    "backHair": {"parentId": "head", "layer": "back"},
+    "frontHair": {"parentId": "head", "layer": "front"},
+    "face": {"parentId": "head", "layer": "head"},
+    "leftEye": {"parentId": "face", "layer": "head"},
+    "rightEye": {"parentId": "face", "layer": "head"},
+    "leftBrow": {"parentId": "face", "layer": "head"},
+    "rightBrow": {"parentId": "face", "layer": "head"},
+    "mouth": {"parentId": "face", "layer": "head"},
+    "nose": {"parentId": "face", "layer": "head"},
+    "leftEar": {"parentId": "head", "layer": "head"},
+    "rightEar": {"parentId": "head", "layer": "head"},
+    "horns": {"parentId": "head", "layer": "front"},
+    "tail": {"parentId": "hip", "layer": "back"},
+}
+BASE_RIG_TARGETS = set(BASE_BODY_PART_DEFAULTS.keys())
 
 
 def read_text(path: Path) -> str:
@@ -219,6 +255,40 @@ def normalize_body_rig_lateral_markup(body_rig: dict[str, Any]) -> None:
                 )
 
 
+def ensure_required_body_rig_nodes(body_rig: dict[str, Any]) -> None:
+    for variant_data in body_rig.values():
+        parts = variant_data.get("parts", [])
+        if not isinstance(parts, list):
+            continue
+        ids: set[str] = set()
+        for part in parts:
+            if not isinstance(part, dict):
+                continue
+            part_id = str(part.get("id", ""))
+            if part_id:
+                ids.add(part_id)
+            if not isinstance(part.get("variations"), dict):
+                part["variations"] = {}
+            if not isinstance(part.get("latticeVariations"), dict):
+                part["latticeVariations"] = {}
+        for part_id, defaults in BASE_BODY_PART_DEFAULTS.items():
+            if part_id in ids:
+                continue
+            pivot = BASE_PIVOTS[part_id]
+            parts.append(
+                {
+                    "id": part_id,
+                    "layer": defaults["layer"],
+                    "parentId": defaults["parentId"],
+                    "pivot": {"x": pivot["x"], "y": pivot["y"]},
+                    "svgMarkup": "<g/>",
+                    "variations": {},
+                    "latticeVariations": {},
+                }
+            )
+            ids.add(part_id)
+
+
 def markup_center_x(markup: str) -> float | None:
     cx_values = [
         float(match.group(1))
@@ -278,6 +348,9 @@ def validate_outputs(outputs: dict[str, Any]) -> list[str]:
             for part in variant_data.get("parts", [])
             if isinstance(part, dict)
         }
+        missing_required = sorted(BASE_RIG_TARGETS - set(parts.keys()))
+        if missing_required:
+            errors.append(f"body rig variant {variant_id} missing required rig nodes: {', '.join(missing_required)}")
         left_foot = parts.get("leftFoot")
         right_foot = parts.get("rightFoot")
         if left_foot and right_foot:
@@ -311,6 +384,7 @@ def import_content(source_root: Path, project_root: Path, dry_run: bool = False)
     )
     tokenize_body_rig_colors(body_rig)
     normalize_body_rig_lateral_markup(body_rig)
+    ensure_required_body_rig_nodes(body_rig)
     cta_sample_assets = extract_json_const(
         cta_sample_source,
         "export const ctaSampleAssets = ",
