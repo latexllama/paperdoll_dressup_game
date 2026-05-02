@@ -99,7 +99,7 @@ func _refresh_items() -> void:
 		return
 	for child in _grid.get_children():
 		_grid.remove_child(child)
-		child.free()
+		child.queue_free()
 	var visible_count := 0
 	for item in _available_items:
 		var item_slot = String(item.get("slot", "misc"))
