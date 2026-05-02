@@ -9,11 +9,11 @@
         "poseId": "idle_anim_pose0"
       },
       {
-        "frame": 24,
+        "frame": 24.0,
         "poseId": "idle-anim-pose1"
       },
       {
-        "frame": 47,
+        "frame": 47.0,
         "poseId": "idle_anim_pose0"
       }
     ],

@@ -3,6 +3,8 @@ extends GutTest
 
 var repo: ContentRepository
 
+const TORSO_BUILD_VARIATION_IDS := ["lean", "athletic", "stocky", "muscular"]
+
 
 func before_each() -> void:
 	repo = ContentRepository.new()
@@ -42,6 +44,19 @@ func test_body_part_sprite_variation_svgs_load_in_godot_svg_runtime() -> void:
 				outfit.pose_id = "variation-load-test"
 				var error = _load_svg(DollSvgBuilder.build_svg(repo, outfit), 0.18)
 				assert_eq(error, OK, "Body sprite SVG should load: %s/%s/%s" % [variant, part_id, variation_id])
+
+
+func test_torso_body_build_variations_are_authored_for_required_variants() -> void:
+	for variant_id in ["female", "male"]:
+		var torso := repo.body_part(variant_id, "torso")
+		assert_false(torso.is_empty(), "Missing torso for %s" % variant_id)
+		var variations: Dictionary = torso.get("variations", {})
+		for variation_id in TORSO_BUILD_VARIATION_IDS:
+			var id := String(variation_id)
+			assert_true(variations.has(id), "Missing %s torso variation %s" % [variant_id, id])
+			var markup := String(variations.get(id, ""))
+			assert_true(SvgSafety.is_safe_markup(markup), "Unsafe %s torso variation %s" % [variant_id, id])
+			assert_string_contains(markup, "var(--doll-skin)")
 
 
 func test_texture_cache_records_invalid_svg_without_debugger_warning() -> void:
