@@ -33,13 +33,14 @@ func item_id() -> String:
 
 
 func _get_drag_data(_at_position: Vector2) -> Variant:
-	if item_id() == "":
+	var dragged_item_id := item_id()
+	if dragged_item_id == "":
 		return null
 	_pending_drag = true
 	visible = false
-	wardrobe_drag_started.emit(item_id())
 	set_drag_preview(_make_drag_preview())
-	return {"kind": "wardrobe_item", "item_id": item_id()}
+	wardrobe_drag_started.emit(dragged_item_id)
+	return {"kind": "wardrobe_item", "item_id": dragged_item_id}
 
 
 func _notification(what: int) -> void:
