@@ -1,11 +1,19 @@
 [
   {
     "fps": 24.0,
-    "frameCount": 48,
+    "frameCount": 48.0,
     "id": "idle",
     "keyframes": [
       {
-        "frame": 1,
+        "frame": 0.0,
+        "poseId": "idle_anim_pose0"
+      },
+      {
+        "frame": 24,
+        "poseId": "idle-anim-pose1"
+      },
+      {
+        "frame": 47,
         "poseId": "idle_anim_pose0"
       }
     ],

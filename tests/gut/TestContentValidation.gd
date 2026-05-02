@@ -98,6 +98,28 @@ func test_content_validation_rejects_invalid_animation_records_and_refs() -> voi
 	assert_string_contains("; ".join(result.get("errors", [])), "missing animation")
 
 
+func test_content_validation_accepts_json_integer_floats_for_animation_frames() -> void:
+	var repo = _valid_repo()
+	repo.animations[0]["frameCount"] = 48.0
+	repo.animations[0]["keyframes"][0]["frame"] = 0.0
+
+	var result = ContentValidator.validate_repository(repo)
+
+	assert_true(result.get("ok", false), "; ".join(result.get("errors", [])))
+
+
+func test_content_validation_rejects_fractional_animation_frames() -> void:
+	var repo = _valid_repo()
+	repo.animations[0]["frameCount"] = 48.5
+	repo.animations[0]["keyframes"][0]["frame"] = 0.5
+
+	var result = ContentValidator.validate_repository(repo)
+
+	assert_false(result.get("ok", true))
+	assert_string_contains("; ".join(result.get("errors", [])), "frameCount must be a positive integer")
+	assert_string_contains("; ".join(result.get("errors", [])), "frame must be an integer")
+
+
 func _valid_repo() -> ContentRepository:
 	var body_part = {
 		"id": "body",

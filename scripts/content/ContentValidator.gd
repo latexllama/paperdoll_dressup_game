@@ -353,7 +353,8 @@ static func _validate_animations(animations: Array, repo: ContentRepository) -> 
 		errors.append_array(_require_string_fields(animation, ["id", "name"], label))
 		errors.append_array(_require_bool_fields(animation, ["loop", "visibleInPlayer"], label))
 		var frame_count = animation.get("frameCount")
-		if not (frame_count is int) or int(frame_count) <= 0:
+		var frame_count_value := int(frame_count) if _whole_number(frame_count) else 0
+		if frame_count_value <= 0:
 			errors.append("%s frameCount must be a positive integer" % label)
 		var fps = animation.get("fps")
 		if not _finite_number(fps) or float(fps) <= 0.0:
@@ -374,14 +375,15 @@ static func _validate_animations(animations: Array, repo: ContentRepository) -> 
 			errors.append_array(_unknown_keys(keyframe, ANIMATION_KEYFRAME_KEYS, keyframe_label))
 			errors.append_array(_require_string_fields(keyframe, ["poseId"], keyframe_label))
 			var frame = keyframe.get("frame")
-			if not (frame is int):
+			if not _whole_number(frame):
 				errors.append("%s frame must be an integer" % keyframe_label)
 			else:
-				if seen_frames.has(int(frame)):
-					errors.append("%s duplicates frame %d" % [label, int(frame)])
-				seen_frames[int(frame)] = true
-				if frame_count is int and (int(frame) < 0 or int(frame) >= int(frame_count)):
-					errors.append("%s frame must be between 0 and %d" % [keyframe_label, int(frame_count) - 1])
+				var frame_value := int(frame)
+				if seen_frames.has(frame_value):
+					errors.append("%s duplicates frame %d" % [label, frame_value])
+				seen_frames[frame_value] = true
+				if frame_count_value > 0 and (frame_value < 0 or frame_value >= frame_count_value):
+					errors.append("%s frame must be between 0 and %d" % [keyframe_label, frame_count_value - 1])
 			var pose_id := String(keyframe.get("poseId", ""))
 			if repo != null and pose_id != "" and not repo.has_pose(pose_id):
 				errors.append("%s references missing pose \"%s\"" % [keyframe_label, pose_id])
@@ -416,6 +418,12 @@ static func _validate_starting_outfit(outfit: Dictionary, repo: ContentRepositor
 
 static func _finite_number(value: Variant) -> bool:
 	return (value is int or value is float) and is_finite(float(value))
+
+
+static func _whole_number(value: Variant) -> bool:
+	if not _finite_number(value):
+		return false
+	return is_equal_approx(float(value), float(int(value)))
 
 
 static func _unknown_keys(record: Dictionary, allowed: Array, label: String) -> Array[String]:

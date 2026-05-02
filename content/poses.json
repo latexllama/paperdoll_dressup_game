@@ -235,5 +235,39 @@
       "leftFoot": "outward",
       "rightFoot": "outward"
     }
+  },
+  {
+    "id": "idle-anim-pose1",
+    "name": "idle_anim_pose1",
+    "parts": {
+      "leftArm": {
+        "rotate": -61.2030520413979
+      },
+      "leftForearm": {
+        "rotate": -26.9758854265714
+      },
+      "leftShank": {
+        "rotate": -9.924799314643
+      },
+      "leftThigh": {
+        "rotate": 6.27798373185477
+      },
+      "rightArm": {
+        "rotate": 55.6853294724028
+      },
+      "rightForearm": {
+        "rotate": 35.8193425753315
+      },
+      "rightShank": {
+        "rotate": 16.2432010537083
+      },
+      "rightThigh": {
+        "rotate": -12.6940981571862
+      }
+    },
+    "sprites": {
+      "leftFoot": "outward",
+      "rightFoot": "outward"
+    }
   }
 ]

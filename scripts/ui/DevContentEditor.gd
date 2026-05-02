@@ -1606,9 +1606,25 @@ func _on_create_id_close_requested() -> void:
 
 func _popup_create_id_dialog() -> void:
 	const DIALOG_SIZE := Vector2i(460, 190)
+	var viewport_size := get_viewport().get_visible_rect().size
+	var clamped_size := Vector2i(
+		mini(DIALOG_SIZE.x, maxi(240, int(viewport_size.x))),
+		mini(DIALOG_SIZE.y, maxi(160, int(viewport_size.y)))
+	)
+	var clamped_position := Vector2i(
+		maxi(0, int((viewport_size.x - float(clamped_size.x)) * 0.5)),
+		maxi(0, int((viewport_size.y - float(clamped_size.y)) * 0.5))
+	)
 	_create_id_dialog.min_size = DIALOG_SIZE
-	_create_id_dialog.size = DIALOG_SIZE
-	_create_id_dialog.popup_centered_clamped(DIALOG_SIZE, 0.75)
+	_create_id_dialog.popup(Rect2i(clamped_position, clamped_size))
+	_enforce_create_id_dialog_rect(clamped_position, clamped_size)
+	_create_id_dialog.call_deferred("set_position", clamped_position)
+	_create_id_dialog.call_deferred("set_size", clamped_size)
+
+
+func _enforce_create_id_dialog_rect(dialog_position: Vector2i, dialog_size: Vector2i) -> void:
+	_create_id_dialog.position = dialog_position
+	_create_id_dialog.size = dialog_size
 
 
 func _section_label(section: String) -> String:
